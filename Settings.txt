@@ -1,0 +1,5 @@
+Peer IP=127.0.0.1,
+Peer Port=5005,
+Listening Port=5009,
+Max Parallel Downloads=1,
+Max Parallel Uploads=1
