@@ -28,7 +28,6 @@ def getPacket(sock,size):
 	remainingsize=size
 	data = sock.recv(remainingsize)
 	while 1:
-		now = datetime.datetime.now()
 		if datetime.datetime.now()>stopTime:
 			return None
 		else:

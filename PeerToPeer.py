@@ -1,3 +1,4 @@
+#!python3
 import os,socket,inspect,ctypes,threading,queue,time,math,pickle
 import Utils
 from tkinter import *
@@ -709,12 +710,10 @@ if (__name__ == "__main__"):
 
 	listeningThread = ListeningThread()
 
-	t = UploadManagerThread()
-	UPLOADS_MANAGER=t
+	UPLOADS_MANAGER = UploadManagerThread()
 
-	t = DownloadManagerThread()
-	DOWNLOADS_MANAGER=t
-
+	DOWNLOADS_MANAGER = DownloadManagerThread()
+	
 	mainWindow(listeningThread)
 
 	#refactor
@@ -740,3 +739,6 @@ if (__name__ == "__main__"):
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox
 	#spawn new processes for fuller parallelism (downloader and uploader)
+	#change the stop time in get packet so it only updates the time when you get new data, not every time
+	#heart beat bug - if user downlaods something every 14 seconds, client never sends beat
+	#make sure getpacketorstop ends both threads, not just server thread
