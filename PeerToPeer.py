@@ -64,6 +64,7 @@ class ClientThread(StoppableThread):#responsible for sending messages to peer
 					selections = message[1]
 					files = Utils.getFilesToDownload(selections,self.folderStruc)
 					print(files)
+					self.sock.send(BEAT_HEADER)
 					for i in range(0,len(files)):
 						DOWNLOADS_MANAGER.mailBox.put(("FILES",[self.sock,files[i],RETRY_LIMIT]))
 			except:
@@ -718,15 +719,15 @@ if (__name__ == "__main__"):
 
 	#refactor
 	#abstract up thread methods
-	#move threads to seperate file
 	#replace some of the lists with class objects to increase readability
 
 	#make uploader tell downloader if it was cancelled
-	#heart beat bug - if user downlaods something every 14 seconds, client never sends beat
 	#settings for list of ip's
+	#move threads to seperate file
 
 	#make all threads close if gui closes
 	#make getpacket not be an active wait
+	#put hardcoded strings to headers
 	#fix gui lag while downloading
 	#set proper update rates for upload and downloads
 	#allow dynamically add and delete files to their upload folders
