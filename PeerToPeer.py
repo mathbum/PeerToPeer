@@ -24,6 +24,9 @@ DOWNLOADS_MANAGER=None
 UPLOADS_MANAGER=None
 RETRY_LIMIT=2
 
+class CancelException(SystemError):
+  pass
+
 def _async_raise(tid, exctype):
 	"""raises the exception, performs cleanup if needed"""
 	if not inspect.isclass(exctype):
@@ -217,6 +220,9 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 			if remainingsize==0:
 				break
 			elif remainingsize>=PACKET_SIZE:
+				ret =  Utils.bytesToInt(Utils.getPacketOrStop(sock,1,(self)))
+				if ret==0:
+					raise CancelException()
 				packet = Utils.getPacketOrStop(sock,PACKET_SIZE,(self))
 				remainingsize = remainingsize-PACKET_SIZE
 				if count%10==0:
@@ -224,6 +230,9 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 					self.downloadTree.set(self.treeItem,"progress",str(percent)+"%")#make this happen not as often
 				count+=1
 			else:
+				ret = Utils.bytesToInt(Utils.getPacketOrStop(sock,1,(self)))
+				if ret==0:
+					raise CancelException()
 				packet = Utils.getPacketOrStop(sock,remainingsize,(self))
 				remainingsize=0
 			f.write(packet)
@@ -239,6 +248,9 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 			self.sock.send(message)
 			conn,addr = s.accept()
 			succ = True
+			ret = Utils.bytesToInt(Utils.getPacketOrStop(conn,1,(self)))
+			if ret==0:
+				raise CancelException()
 			rec = Utils.getPacketOrStop(conn,9,(self))
 			control = rec[:4]
 			if control==SEND_FILE_HEADER:
@@ -257,18 +269,25 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 			else:
 				self.downloadTree.set(self.treeItem,"progress","failed")
 			self.managerMailbox.put(("THREAD",(self,self.filePath,succ,self.treeItem)))
+		except CancelException:
+			self.downloadTree.set(self.treeItem,"progress","cancelled")
+			self.setCancelled(True)
+			self.cancelDownload(conn)
 		except SystemExit:#stopped by another thread
-			if conn!=None:
-				conn.close()
-			if self.fle!=None:
-				self.fle.close()
-				os.remove(self.fullFilePath)
-			self.managerMailbox.put(("THREAD",(self,self.filePath,self.isCancelled,self.treeItem)))
+			self.cancelDownload(conn)			
 		except:
 			print("caught")
 			self.downloadTree.set(self.treeItem,"progress","failed")
 			print(self.filePath)
 			self.managerMailbox.put(("THREAD",(self,self.filePath,False,self.treeItem)))
+
+	def cancelDownload(self,conn):
+		if conn!=None:
+			conn.close()
+		if self.fle!=None:
+			self.fle.close()
+			os.remove(self.fullFilePath)#check if it exists?
+		self.managerMailbox.put(("THREAD",(self,self.filePath,self.isCancelled,self.treeItem)))
 
 class DownloadManagerThread(StoppableThread):#if thread downloads thread crashs make it auto retry
 	downloadList=[]#(sock,filename,retries,treeItem)
@@ -366,11 +385,14 @@ class DownloadManagerThread(StoppableThread):#if thread downloads thread crashs 
 			self.downloadList.pop(itemToRemove)
 
 		if not(handled):#remove from completed download that was canceled before it completed
-			os.remove(Utils.join(DOWNLOADS_DIR,item["text"]))
+			filePath = Utils.join(DOWNLOADS_DIR,item["text"]) 
+			if os.path.isfile(filePath):
+				os.remove(filePath)
 			self.downloadTree.set(itemName,"progress","Canceled")
 
 class IndUploadThread(StoppableThread):#change stop function to notify the manager
 	fle=None#actual file object
+	isCancelled=False
 
 	def __init__(self,sock,filePath,mailbox,uploadTree,treeItem):
 		threading.Thread.__init__(self)
@@ -379,6 +401,9 @@ class IndUploadThread(StoppableThread):#change stop function to notify the manag
 		self.managerMailbox=mailbox
 		self.uploadTree = uploadTree
 		self.treeItem=treeItem
+
+	def setCancelled(self,isCancelled):
+		self.isCancelled=isCancelled
 
 	def run(self):
 		self.sendFile()
@@ -396,7 +421,7 @@ class IndUploadThread(StoppableThread):#change stop function to notify the manag
 			print("FILE DOESN'T EXIST")
 			self.uploadTree.set(self.treeItem,"progress","DNE")
 			message=Utils.padMessage(FILE_NOT_EXIST_ERR,9)
-		self.sock.send(message)
+		self.sock.send(Utils.intToBytes(1,1)+message)
 		return size,numofpacks
 
 	def sendFile(self):# tell server user that you are sending and it is sent
@@ -417,7 +442,7 @@ class IndUploadThread(StoppableThread):#change stop function to notify the manag
 					data = f.read(PACKET_SIZE)
 					percent = format(float(i)/float(numofpacks)*100,'.2f')
 					self.uploadTree.set(self.treeItem,"progress",str(percent)+"%")#make this happen not as often
-					self.sock.send(data)
+					self.sock.send(Utils.intToBytes(1,1)+data)
 			t1 = time.time()
 			Utils.printSpeed(t1-t0,size)
 			f.close()
@@ -425,8 +450,8 @@ class IndUploadThread(StoppableThread):#change stop function to notify the manag
 			self.managerMailbox.put(("THREAD",(self,self.filePath)))
 			self.sock.close()
 		except SystemExit:
+			self.sock.send(Utils.intToBytes(0,1))
 			if self.sock!=None:
-				# self.sock.close()
 				self.sock.shutdown(socket.SHUT_RDWR)
 				self.sock.close()
 			if self.fle!=None:
@@ -487,7 +512,7 @@ class UploadManagerThread(StoppableThread):
 			data = self.mailBox.get()
 			messageType = data[0]
 			data = data[1]
-			if messageType == "THREAD":#isinstance(data[0],StoppableThread):#i don't think we need the filename
+			if messageType == "THREAD":
 				print("Upload thread returned")
 				self.removeThread(data)
 			elif messageType=="CANCEL":
@@ -721,9 +746,9 @@ if (__name__ == "__main__"):
 	#abstract up thread methods
 	#replace some of the lists with class objects to increase readability
 
-	#make uploader tell downloader if it was cancelled
 	#settings for list of ip's
 	#move threads to seperate file
+	#put ip address instead of "Other" in chat
 
 	#make all threads close if gui closes
 	#make getpacket not be an active wait
@@ -737,7 +762,6 @@ if (__name__ == "__main__"):
 	#make it so if a peer is full on uploads a requesting downloader doesn't wait all day
 	#display max upload/downloads allow it to be changed but error check that its <= 100 and > 0
 	#allow user to clear finished uploaded or downloaded files
-	#put ip address instead of "Other" in chat
 	#make distinction between system message,other messages and your own
 	#what if gui is closed before all threads are finished?
 	#maintain ip address
