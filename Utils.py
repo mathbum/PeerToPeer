@@ -15,11 +15,12 @@ def bytesToString(bytes):
 def join(path1,path2):
 	return os.path.join(path1,path2)
 
-def getPacketOrStop(sock,size,thread):
+def getPacketOrStop(sock,size,threads):
 	value = getPacket(sock,size)
 	if value==None:
 		print("Sender Disconnected")
-		thread.stop()
+		for i in len(threads):
+			threads[i].stop()
 	else:
 		return value
 
@@ -33,7 +34,7 @@ def getPacket(sock,size):
 		else:
 			if len(data)==size:
 				return data
-			else:
+			elif len(data)>0:
 				remainingsize=size-len(data)
 			data += sock.recv(remainingsize)
 			stopTime=datetime.datetime.now() + datetime.timedelta(minutes=1)

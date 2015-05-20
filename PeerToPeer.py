@@ -95,17 +95,17 @@ class ServerThread(StoppableThread):
 
 	def run(self):
 		while 1:
-			control = Utils.getPacketOrStop(self.sock,4,self)
+			control = Utils.getPacketOrStop(self.sock,4,(self,self.client))
 			print(control)
 			if control == FILE_REQUEST:
-				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,self))
-				fileName = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,self))
-				port = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,self))
+				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,(self,self.client)))
+				fileName = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
+				port = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,(self,self.client)))
 				print("ip to send to"+self.ip)
 				self.managerMailbox.put(("FILE",[self.ip,port,fileName]))
 			elif control == MESSAGE_HEADER:
-				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,self))
-				data = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,self))
+				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
+				data = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				# print(data)
 				self.putOtherMessageInChat(data)
 			elif control == LIST_HEADER:
@@ -114,8 +114,8 @@ class ServerThread(StoppableThread):
 				size = len(encodedStruc)
 				self.sock.send(LIST_RES_HEADER+Utils.intToBytes(size,4)+encodedStruc)
 			elif control == LIST_RES_HEADER:
-				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,self))
-				folderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,self))
+				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
+				folderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				strippedStruc = self.fillTreeWithFolder(self.browseTree,"",folderStruc,"")
 				self.client.setFolderStruc(strippedStruc)
 				# self.client.setFolderStruc(folderStruc)
@@ -216,14 +216,14 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 			if remainingsize==0:
 				break
 			elif remainingsize>=PACKET_SIZE:
-				packet = Utils.getPacketOrStop(sock,PACKET_SIZE,self)
+				packet = Utils.getPacketOrStop(sock,PACKET_SIZE,(self))
 				remainingsize = remainingsize-PACKET_SIZE
 				if count%10==0:
 					percent = format(float(size-remainingsize)/float(size)*100,'.2f')
 					self.downloadTree.set(self.treeItem,"progress",str(percent)+"%")#make this happen not as often
 				count+=1
 			else:
-				packet = Utils.getPacketOrStop(sock,remainingsize,self)
+				packet = Utils.getPacketOrStop(sock,remainingsize,(self))
 				remainingsize=0
 			f.write(packet)
 		f.close()
@@ -238,7 +238,7 @@ class IndDownloadThread(StoppableThread):#change stop function to notify the man
 			self.sock.send(message)
 			conn,addr = s.accept()
 			succ = True
-			rec = Utils.getPacketOrStop(conn,9,self)
+			rec = Utils.getPacketOrStop(conn,9,(self))
 			control = rec[:4]
 			if control==SEND_FILE_HEADER:
 				size = Utils.bytesToInt(rec[5:])
@@ -721,6 +721,10 @@ if (__name__ == "__main__"):
 	#move threads to seperate file
 	#replace some of the lists with class objects to increase readability
 
+	#make uploader tell downloader if it was cancelled
+	#heart beat bug - if user downlaods something every 14 seconds, client never sends beat
+	#settings for list of ip's
+
 	#make all threads close if gui closes
 	#make getpacket not be an active wait
 	#fix gui lag while downloading
@@ -739,6 +743,3 @@ if (__name__ == "__main__"):
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox
 	#spawn new processes for fuller parallelism (downloader and uploader)
-	#change the stop time in get packet so it only updates the time when you get new data, not every time
-	#heart beat bug - if user downlaods something every 14 seconds, client never sends beat
-	#make sure getpacketorstop ends both threads, not just server thread
