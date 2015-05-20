@@ -1,4 +1,16 @@
 import socket,os,Settings,winsound,re,datetime
+PACKET_SIZE=1048576 #102400
+SEND_FILE_HEADER = b'SDFL'
+FILE_REQUEST = b'FILE'
+MESSAGE_HEADER = b'MESS'
+LIST_HEADER = b'LSRQ'
+LIST_RES_HEADER = b'LSRS'
+BEAT_HEADER = b'BEAT'
+CONN_HEADER = b'CONN'
+FILE_NOT_EXIST_ERR = b'FDNE'
+DOWNLOADS_DIR = os.path.join(os.getcwd(),"downloads")
+UPLOADS_DIR = os.path.join(os.getcwd(),"uploads")
+RETRY_LIMIT=2
 
 def bytesToInt(byteNum):
 	return int.from_bytes(byteNum, byteorder='big')
