@@ -186,8 +186,6 @@ if (__name__ == "__main__"):
 	
 	mainWindow(listeningThread)
 
-	#refactor
-	#abstract up thread methods
 	#replace some of the lists with class objects to increase readability
 
 	#settings for list of ip's
@@ -206,7 +204,6 @@ if (__name__ == "__main__"):
 	#display max upload/downloads allow it to be changed but error check that its <= 100 and > 0
 	#allow user to clear finished uploaded or downloaded files
 	#make distinction between system message,other messages and your own
-	#what if gui is closed before all threads are finished?
 	#maintain ip address
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox

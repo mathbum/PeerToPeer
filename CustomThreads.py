@@ -172,7 +172,6 @@ class ServerThread(StoppableThread):
 			elif control == Utils.MESSAGE_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
 				data = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
-				# print(data)
 				self.putOtherMessageInChat(data)
 			elif control == Utils.LIST_HEADER:
 				folderStruc = Utils.listfolder(Utils.UPLOADS_DIR)[0]
@@ -184,13 +183,12 @@ class ServerThread(StoppableThread):
 				folderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				strippedStruc = self.fillTreeWithFolder(self.browseTree,"",folderStruc,"")
 				self.client.setFolderStruc(strippedStruc)
-				# self.client.setFolderStruc(folderStruc)
 			elif control==Utils.BEAT_HEADER:
 				pass
 
 	def putOtherMessageInChat(self,message):
 		self.chatLog.config(state=NORMAL)
-		if self.chatLog.index('end') != None:#whaat is this?
+		if self.chatLog.index('end') != None:#what is this?
 			# try:#why is there a try catch around this?
 			LineNumber = float(self.chatLog.index('end'))-1.0
 			# except:
@@ -276,7 +274,7 @@ class UploadManagerThread(ManagerThread):
 		self.tree.insert("",END,text=uploadInfo[2],values=(str(uploadInfo[0])+" "+str(uploadInfo[1]),size,"Waiting"))
 		children = self.tree.get_children('')
 		uploadInfo.append(children[len(children)-1])
-		self.transferList.append(tuple(uploadInfo))#abstract this up
+		self.transferList.append(tuple(uploadInfo))
 
 		for i in range(len(self.transferThreads),self.maxThreads):
 			self.transferNext()
@@ -313,7 +311,7 @@ class DownloadManagerThread(ManagerThread):
 		self.tree.insert("",END,text=downloadInfo[1][0],values=(downloadInfo[0].getsockname(),downloadInfo[1][1],"Waiting"))
 		children = self.tree.get_children('')
 		downloadInfo.append(children[len(children)-1])
-		self.transferList.append(tuple(downloadInfo))#abstract this up
+		self.transferList.append(tuple(downloadInfo))
 		for i in range(len(self.transferThreads),self.maxThreads):
 			self.transferNext()
 
@@ -329,7 +327,7 @@ class DownloadManagerThread(ManagerThread):
 			self.transferThreads.append((t,nextFile,retries))
 			t.start()
 
-	def handleThread(self,data):#if its a thread claiming it is done (thread,filepath,succ,treeItem)
+	def handleThread(self,data):#if its a thread done (thread,filepath,succ,treeItem)
 		print("download thread returned: "+str(data[2]))
 		listItem = None
 		for i in range(0,len(self.transferThreads)):
@@ -377,7 +375,7 @@ class IndUploadThread(TransferThread):
 		self.sock.send(Utils.intToBytes(1,1)+message)
 		return size,numofpacks
 
-	def run(self):# tell server user that you are sending and it is sent
+	def run(self):
 		try:
 			fullfilename = Utils.join(Utils.UPLOADS_DIR,self.filePath)
 			size,numofpacks=self.sendFileInfo(fullfilename)
