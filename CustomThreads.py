@@ -23,68 +23,135 @@ class StoppableThread(threading.Thread):
 	def stop(self):
 		_async_raise(self.ident, SystemExit)
 
+class ManagerThread(StoppableThread):
+	def __init__(self,maxThreads):
+		super().__init__()
+		self.mailBox=queue.Queue()
+		self.maxThreads=maxThreads
+		self.transferList=[]
+		self.transferThreads=[]
+		self.tree = None
+
+	def setTree(self,tree):
+		self.tree=tree
+
+	def removeThread(self,itemToRemove):
+		try: #in case the thread is no longer in the transferThreads list
+			self.transferThreads.remove(itemToRemove)
+		except:
+			pass
+		self.transferNext()
+	
+	def run(self):
+		while(1):
+			data = self.mailBox.get()
+			messageType = data[0]
+			data = data[1]
+			self.handleMail(messageType,data)
+
+	def handleMail(self,messageType,data):
+		if messageType == "THREAD":
+			self.handleThread(data)
+		elif messageType=="CANCEL":
+			self.handleCancel(data)
+		elif messageType=="FILES":
+			self.handleFile(data)
+		else:
+			self.handleOtherMail(messageType,data)
+
+	def handleCancel(self,data):
+		for i in range(0,len(data)):
+			self.cancelTransfer(data[i])
+
+	def handleOtherMail(self,messageType,data):
+		print("Got Unknown Mail",messageType)
+
+	def cancelTransfer(self,itemName):
+		handled = False
+		item = self.tree.item(itemName)
+		progress = item["values"][2]
+		if progress == "Done":
+			return True
+
+		itemToRemove = None
+		for i in range(0,len(self.transferList)):#remove from list waiting to transfer
+			if self.transferList[i][3]==itemName:
+				self.tree.set(itemName,"progress","Canceled")
+				itemToRemove = i
+				handled=True
+				break
+
+		if not(handled):
+			for i in range(0,len(self.transferThreads)):#remove from current transfer
+				threadInfo = self.transferThreads[i]
+				thread = threadInfo[0]
+				if thread.treeItem==itemName:
+					thread.setCancelled(True)
+					thread.stop()
+					self.tree.set(itemName,"progress","Canceled")
+					handled=True
+					break
+		else:
+			self.transferList.pop(itemToRemove)
+		return handled
+
 class TransferThread(StoppableThread):
-	fle=None#actual file object
-	isCancelled = False
 	def __init__(self,sock,filePath,mailbox,tree,treeItem):
-		threading.Thread.__init__(self)
+		super().__init__()
 		self.sock = sock
 		self.filePath=filePath#filepath to the server and download manager
 		self.managerMailbox=mailbox		
 		self.tree=tree
 		self.treeItem = treeItem
+		self.fle=None#actual file object
+		self.isCancelled = False
 
 	def setCancelled(self,isCancelled):
 		self.isCancelled=isCancelled
 
-class ClientThread(StoppableThread):#responsible for sending messages to peer
-	folderStruc=None
+class ListeningThread(StoppableThread):
+	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager):
+		super().__init__()
+		self.peerIP=peerIP
+		self.peerPort=peerPort
+		self.listeningPort=listeningPort
+		self.uploadsManager=uploadsManager
+		self.downloadsManager=downloadsManager
+		self.chatLog = None
+		self.browseTree=None
+		self.connections=[] #(socket,serverthread,clientthread)
 
-	def __init__(self,sock,managerMailbox):
-		threading.Thread.__init__(self)
-		self.sock=sock
-		self.mailBox=queue.Queue()
-		self.managerMailbox = managerMailbox
+	def setChatLog(self,chatLog):
+		self.chatLog=chatLog
 
-	def setFolderStruc(self,folderStruc):
-		self.folderStruc=folderStruc
+	def setBrowseTree(self,browseTree):
+		self.browseTree=browseTree
 
 	def run(self):
-		self.sock.send(Utils.LIST_HEADER)
+		try:#start off by trying to connect to other peer
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((self.peerIP, self.peerPort))
+			self.connectToPeer(s,self.peerIP)
+		except:
+			pass
+		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		s1.bind(('',self.listeningPort))
+		s1.listen(1)# number of backloged connections
 		while 1:
-			try:
-				message = self.mailBox.get(timeout=15)
-				messageType = message[0]
-				if messageType=="MESSAGE":
-					message=message[1]
-					self.sendMessage(message)
-				elif messageType=="FILES":
-					selections = message[1]
-					files = Utils.getFilesToDownload(selections,self.folderStruc)
-					print(files)
-					self.sock.send(Utils.BEAT_HEADER)
-					for i in range(0,len(files)):
-						self.managerMailbox.put(("FILES",[self.sock,files[i],Utils.RETRY_LIMIT]))
-			except:
-				self.sock.send(Utils.BEAT_HEADER)
+			s2, addr = s1.accept()
+			print('Connection address: '+str(addr))
+			self.connectToPeer(s2,addr[0])
 
-	def sendMessage(self,message):
-		size = 0
-		maxMessageSize = Utils.PACKET_SIZE-8
-		while(1):
-			size = len(message)
-			if size == 0:
-				break
-			elif size > maxMessageSize:
-				size = maxMessageSize
-			else:
-				size = len(message)
-			self.sock.send(Utils.MESSAGE_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(message[:size]))
-			message = message[size:]
+	def connectToPeer(self,sock,addressIP):
+		client = ClientThread(sock,self.downloadsManager.mailBox)
+		server = ServerThread(sock,self.chatLog,self.uploadsManager.mailBox,client,self.browseTree,addressIP)
+		client.start()
+		server.start()
+		self.connections.append((sock,server,client))
 
 class ServerThread(StoppableThread):
 	def __init__(self,sock,chatLog,managerMailbox,client,browseTree,ip):
-		threading.Thread.__init__(self)
+		super().__init__()
 		self.sock=sock
 		self.chatLog=chatLog
 		self.managerMailbox=managerMailbox
@@ -100,8 +167,8 @@ class ServerThread(StoppableThread):
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,(self,self.client)))
 				fileName = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				port = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,(self,self.client)))
-				print("ip to send to"+self.ip)
-				self.managerMailbox.put(("FILE",[self.ip,port,fileName]))
+				print("ip to send to "+self.ip)
+				self.managerMailbox.put(("FILES",[self.ip,port,fileName]))
 			elif control == Utils.MESSAGE_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
 				data = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
@@ -152,50 +219,205 @@ class ServerThread(StoppableThread):
 				tree.insert(root,END,Utils.join(path,item[0]),text=item[0],values=(item[1],fileext))
 		return folder
 
-class ListeningThread(StoppableThread):
-	chatLog = None
-	browseTree=None
-	connections=[] #(socket,serverthread,clientthread)
+class ClientThread(StoppableThread):#responsible for sending messages to peer
+	def __init__(self,sock,managerMailbox):
+		super().__init__()
+		self.sock=sock
+		self.mailBox=queue.Queue()
+		self.managerMailbox = managerMailbox
+		self.folderStruc=None
 
-	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager):
-		threading.Thread.__init__(self)
-		self.peerIP=peerIP
-		self.peerPort=peerPort
-		self.listeningPort=listeningPort
-		self.uploadsManager=uploadsManager
-		self.downloadsManager=downloadsManager
-
-	def setChatLog(self,chatLog):
-		self.chatLog=chatLog
-
-	def setBrowseTree(self,browseTree):
-		self.browseTree=browseTree
+	def setFolderStruc(self,folderStruc):
+		self.folderStruc=folderStruc
 
 	def run(self):
-		try:#start off by trying to connect to other peer
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((self.peerIP, self.peerPort))
-			self.connectToPeer(s,self.peerIP)
+		self.sock.send(Utils.LIST_HEADER)
+		while 1:
+			try:
+				message = self.mailBox.get(timeout=15)
+				messageType = message[0]
+				if messageType=="MESSAGE":
+					message=message[1]
+					self.sendMessage(message)
+				elif messageType=="FILES":
+					selections = message[1]
+					files = Utils.getFilesToDownload(selections,self.folderStruc)
+					print(files)
+					self.sock.send(Utils.BEAT_HEADER)
+					for i in range(0,len(files)):
+						self.managerMailbox.put(("FILES",[self.sock,files[i],Utils.RETRY_LIMIT]))
+			except:
+				self.sock.send(Utils.BEAT_HEADER)
+
+	def sendMessage(self,message):
+		size = 0
+		maxMessageSize = Utils.PACKET_SIZE-8
+		while(1):
+			size = len(message)
+			if size == 0:
+				break
+			elif size > maxMessageSize:
+				size = maxMessageSize
+			else:
+				size = len(message)
+			self.sock.send(Utils.MESSAGE_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(message[:size]))
+			message = message[size:]
+
+class UploadManagerThread(ManagerThread):
+	# transferList=[]#(ip,port,filename,treeItem)
+	# transferThreads=[] # (thread,filename)
+
+	def appendFile(self,uploadInfo):# [ip,port,filename]
+		size = 0
+		try:
+			size = os.path.getsize(Utils.join(Utils.UPLOADS_DIR,uploadInfo[2]))
 		except:
 			pass
-		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		s1.bind(('',self.listeningPort))
-		s1.listen(1)# number of backloged connections
-		while 1:
-			s2, addr = s1.accept()
-			print('Connection address: '+str(addr))
-			self.connectToPeer(s2,addr[0])
+		self.tree.insert("",END,text=uploadInfo[2],values=(str(uploadInfo[0])+" "+str(uploadInfo[1]),size,"Waiting"))
+		children = self.tree.get_children('')
+		uploadInfo.append(children[len(children)-1])
+		self.transferList.append(tuple(uploadInfo))#abstract this up
 
-	def connectToPeer(self,sock,addressIP):
-		client = ClientThread(sock,self.downloadsManager.mailBox)
-		server = ServerThread(sock,self.chatLog,self.uploadsManager.mailBox,client,self.browseTree,addressIP)
-		client.start()
-		server.start()
-		print("connected")
-		self.connections.append((sock,server,client))
+		for i in range(len(self.transferThreads),self.maxThreads):
+			self.transferNext()
+
+	def transferNext(self):
+		if len(self.transferThreads)<self.maxThreads and len(self.transferList)>0:      
+			nextFileInfo = self.transferList.pop(0)
+			ip = nextFileInfo[0]
+			port = nextFileInfo[1]
+			nextFile=nextFileInfo[2]
+			treeItem = nextFileInfo[3]
+			print("going to upload "+nextFile)
+
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((ip, port))
+			print("connected: "+str(ip)+" "+str(port))
+
+			t = IndUploadThread(s,nextFile,self.mailBox,self.tree,treeItem)
+			self.transferThreads.append((t,nextFile))
+			t.start()
+
+	def handleThread(self,data):
+		print("Upload thread returned")
+		self.removeThread(data)
+
+	def handleFile(self,data):#if its a new file to upload [ip,port,filename]
+		self.appendFile(data)
+
+class DownloadManagerThread(ManagerThread):
+	# self.transferList=[]#(sock,filename,retries,treeItem)
+	# transferThreads=[] # (thread,filename,retryamount) so that if a failed file. it can retry download
+
+	def appendFiles(self,downloadInfo):#[sock,file,retries]
+		self.tree.insert("",END,text=downloadInfo[1][0],values=(downloadInfo[0].getsockname(),downloadInfo[1][1],"Waiting"))
+		children = self.tree.get_children('')
+		downloadInfo.append(children[len(children)-1])
+		self.transferList.append(tuple(downloadInfo))#abstract this up
+		for i in range(len(self.transferThreads),self.maxThreads):
+			self.transferNext()
+
+	def transferNext(self):
+		if len(self.transferThreads)<self.maxThreads and len(self.transferList)>0:
+			nextDownloadInfo = self.transferList.pop(0)
+			sock = nextDownloadInfo[0]
+			nextFile=nextDownloadInfo[1][0]
+			retries=nextDownloadInfo[2]
+			treeItem = nextDownloadInfo[3]
+			print("going to download "+nextFile)
+			t = IndDownloadThread(sock,nextFile,self.mailBox,self.tree,treeItem)
+			self.transferThreads.append((t,nextFile,retries))
+			t.start()
+
+	def handleThread(self,data):#if its a thread claiming it is done (thread,filepath,succ,treeItem)
+		print("download thread returned: "+str(data[2]))
+		listItem = None
+		for i in range(0,len(self.transferThreads)):
+			if data[0]==self.transferThreads[i][0]:
+				listItem=self.transferThreads[i]
+				break
+		print(data)
+		if not(data[2]):#unsucessful download
+			retries = listItem[2]-1
+			if retries>0:
+				self.transferList.insert(0,(data[0].sock,(data[1],-1),retries,data[3]))
+				self.tree.set(data[3],"progress","waiting")
+		self.removeThread(listItem)
+
+	def handleFile(self,data):#if its a new files to download format [sock,file,retrylimit]
+		self.appendFiles(data)
+	
+	def cancelTransfer(self,itemName):
+		handled = super().cancelTransfer(itemName)
+
+		if not(handled):#remove from completed download that was canceled before it completed
+			item = self.tree.item(itemName)
+			filePath = Utils.join(Utils.DOWNLOADS_DIR,item["text"]) 
+			try:
+				if os.path.isfile(filePath):
+					os.remove(filePath)
+			except:
+				pass
+			self.tree.set(itemName,"progress","Canceled")
+
+class IndUploadThread(TransferThread):
+	def sendFileInfo(self,filename):
+		message=""
+		size=None
+		numofpacks=None
+		try:
+			size = os.path.getsize(filename)
+			numofpacks = math.ceil(size/Utils.PACKET_SIZE)
+			message = Utils.SEND_FILE_HEADER+Utils.intToBytes(size,5)
+
+		except:
+			print("FILE DOESN'T EXIST")
+			self.tree.set(self.treeItem,"progress","DNE")
+			message=Utils.padMessage(Utils.FILE_NOT_EXIST_ERR,9)
+		self.sock.send(Utils.intToBytes(1,1)+message)
+		return size,numofpacks
+
+	def run(self):# tell server user that you are sending and it is sent
+		try:
+			fullfilename = Utils.join(Utils.UPLOADS_DIR,self.filePath)
+			size,numofpacks=self.sendFileInfo(fullfilename)
+
+			if size==None:
+				self.managerMailbox.put(("THREAD",(self,self.filePath)))
+				self.sock.close()
+				return
+
+			t0 = time.time()
+			with open(fullfilename, 'rb') as f:
+				self.fle=f
+				for i in range(1,numofpacks+1):
+					data = f.read(Utils.PACKET_SIZE)
+					percent = format(float(i)/float(numofpacks)*100,'.2f')
+					self.tree.set(self.treeItem,"progress",str(percent)+"%")#make this happen not as often
+					self.sock.send(Utils.intToBytes(1,1)+data)
+			t1 = time.time()
+			Utils.printSpeed(t1-t0,size)
+			f.close()
+			self.tree.set(self.treeItem,"progress","Done")
+			self.managerMailbox.put(("THREAD",(self,self.filePath)))
+			self.sock.close()
+		except SystemExit:
+			self.sock.send(Utils.intToBytes(0,1))
+			if self.sock!=None:
+				self.sock.shutdown(socket.SHUT_RDWR)
+				self.sock.close()
+			if self.fle!=None:
+				self.fle.close()
+			self.managerMailbox.put(("THREAD",(self,self.filePath)))
+		except:
+			# print(sys.exc_info()[0])
+			self.tree.set(self.treeItem,"progress","Failed")
+			self.managerMailbox.put(("THREAD",(self,self.filePath)))
 
 class IndDownloadThread(TransferThread):
-	fullFilePath=None#filepath to the client
+	def __init__(self,sock,filePath,mailbox,tree,treeItem):
+		super().__init__(sock,filePath,mailbox,tree,treeItem)
+		fullFilePath=None#filepath to the client
 
 	def recieveFile(self,sock,size):
 		self.fullFilePath = Utils.join(Utils.DOWNLOADS_DIR,self.filePath)
@@ -276,250 +498,8 @@ class IndDownloadThread(TransferThread):
 			conn.close()
 		if self.fle!=None:
 			self.fle.close()
-			os.remove(self.fullFilePath)#check if it exists?
+			try:
+				os.remove(self.fullFilePath)#check if it exists?
+			except:
+				pass
 		self.managerMailbox.put(("THREAD",(self,self.filePath,self.isCancelled,self.treeItem)))
-
-class DownloadManagerThread(StoppableThread):#if thread downloads thread crashs make it auto retry
-	downloadList=[]#(sock,filename,retries,treeItem)
-	folderStruc = None
-	downloadTree = None
-	downloadThreads=[] # (thread,filename,retryamount) so that if a failed file. it can retry download
-
-	def __init__(self,maxThreads):
-		threading.Thread.__init__(self)
-		self.mailBox=queue.Queue()
-		self.maxThreads=maxThreads
-
-	def setTree(self,downloadTree):
-		self.downloadTree=downloadTree
-
-	def appendFiles(self,downloadInfo):#[sock,file,retries]
-		self.downloadTree.insert("",END,text=downloadInfo[1][0],values=(downloadInfo[0].getsockname(),downloadInfo[1][1],"Waiting"))
-		children = self.downloadTree.get_children('')
-		downloadInfo.append(children[len(children)-1])
-		self.downloadList.append(tuple(downloadInfo))#abstract this up
-		for i in range(len(self.downloadThreads),self.maxThreads):
-			self.downloadNext()
-
-	def downloadNext(self):
-		if len(self.downloadThreads)<self.maxThreads and len(self.downloadList)>0:
-			nextDownloadInfo = self.downloadList.pop(0)
-			sock = nextDownloadInfo[0]
-			nextFile=nextDownloadInfo[1][0]
-			retries=nextDownloadInfo[2]
-			treeItem = nextDownloadInfo[3]
-			print("going to download "+nextFile)
-			t = IndDownloadThread(sock,nextFile,self.mailBox,self.downloadTree,treeItem)
-			self.downloadThreads.append((t,nextFile,retries))
-			t.start()
-
-	def removeThread(self,itemToRemove):
-		try:#in case the thread is no longer in the downloadThreads list
-			self.downloadThreads.remove(itemToRemove)
-		except:
-			pass
-		self.downloadNext()
-	
-	def run(self):
-		while(1):
-			data = self.mailBox.get()
-			messageType = data[0]
-			data = data[1]
-			if messageType == "THREAD":#if its a thread claiming it is done (thread,filepath,succ,treeItem)
-				print("download thread returned: "+str(data[2]))
-				listItem = None
-				for i in range(0,len(self.downloadThreads)):
-					if data[0]==self.downloadThreads[i][0]:
-						listItem=self.downloadThreads[i]
-						break
-				print(data)
-				if not(data[2]):#unsucessful download
-					retries = listItem[2]-1
-					if retries>0:
-						self.downloadList.insert(0,(data[0].sock,(data[1],-1),retries,data[3]))
-						self.downloadTree.set(data[3],"progress","waiting")
-				self.removeThread(listItem)
-			elif messageType=="CANCEL":
-				for i in range(0,len(data)):
-					self.cancelDownload(data[i])
-			elif messageType == "FILES":#if its a new files to download format (sock,file,retrylimit)
-				self.appendFiles(data)
-			else:
-				print("download manager got unknown mail: ")
-				print(messageType)
-
-	def cancelDownload(self,itemName):
-		handled = False
-		item = self.downloadTree.item(itemName)
-		progress = item["values"][2]
-		if progress == "Done":
-			return
-
-		itemToRemove = None
-		for i in range(0,len(self.downloadList)):#remove from list waiting to download
-			if self.downloadList[i][3]==itemName:
-				self.downloadTree.set(itemName,"progress","Canceled")
-				itemToRemove=i
-				handled=True
-				break
-
-		if not(handled):
-			for i in range(0,len(self.downloadThreads)):#remove from current downloads
-				threadInfo = self.downloadThreads[i]
-				thread = threadInfo[0]
-				if thread.treeItem==itemName:
-					thread.setCancelled(True)
-					thread.stop()
-					self.downloadTree.set(itemName,"progress","Canceled")
-					handled=True
-					break
-		else:
-			self.downloadList.pop(itemToRemove)
-
-		if not(handled):#remove from completed download that was canceled before it completed
-			filePath = Utils.join(Utils.DOWNLOADS_DIR,item["text"]) 
-			if os.path.isfile(filePath):
-				os.remove(filePath)
-			self.downloadTree.set(itemName,"progress","Canceled")
-
-class IndUploadThread(TransferThread):
-
-	def sendFileInfo(self,filename):
-		message=""
-		size=None
-		numofpacks=None
-		try:
-			size = os.path.getsize(filename)
-			numofpacks = math.ceil(size/Utils.PACKET_SIZE)
-			message = Utils.SEND_FILE_HEADER+Utils.intToBytes(size,5)
-
-		except:
-			print("FILE DOESN'T EXIST")
-			self.tree.set(self.treeItem,"progress","DNE")
-			message=Utils.padMessage(Utils.FILE_NOT_EXIST_ERR,9)
-		self.sock.send(Utils.intToBytes(1,1)+message)
-		return size,numofpacks
-
-	def run(self):# tell server user that you are sending and it is sent
-		try:
-			fullfilename = Utils.join(Utils.UPLOADS_DIR,self.filePath)
-			print("fullfilename: "+fullfilename)
-			size,numofpacks=self.sendFileInfo(fullfilename)
-
-			if size==None:
-				self.managerMailbox.put(("THREAD",(self,self.filePath)))
-				self.sock.close()
-				return
-
-			t0 = time.time()
-			with open(fullfilename, 'rb') as f:
-				self.fle=f
-				for i in range(1,numofpacks+1):
-					data = f.read(Utils.PACKET_SIZE)
-					percent = format(float(i)/float(numofpacks)*100,'.2f')
-					self.tree.set(self.treeItem,"progress",str(percent)+"%")#make this happen not as often
-					self.sock.send(Utils.intToBytes(1,1)+data)
-			t1 = time.time()
-			Utils.printSpeed(t1-t0,size)
-			f.close()
-			self.tree.set(self.treeItem,"progress","Done")
-			self.managerMailbox.put(("THREAD",(self,self.filePath)))
-			self.sock.close()
-		except SystemExit:
-			self.sock.send(Utils.intToBytes(0,1))
-			if self.sock!=None:
-				self.sock.shutdown(socket.SHUT_RDWR)
-				self.sock.close()
-			if self.fle!=None:
-				self.fle.close()
-			self.managerMailbox.put(("THREAD",(self,self.filePath)))
-		except:
-			# print(sys.exc_info()[0])
-			self.tree.set(self.treeItem,"progress","Failed")
-			self.managerMailbox.put(("THREAD",(self,self.filePath)))
-
-class UploadManagerThread(StoppableThread):
-	uploadList=[]#(ip,port,filename,treeItem)
-	uploadThreads=[] # (thread,filename)
-	def __init__(self,maxThreads):
-		threading.Thread.__init__(self)
-		self.mailBox=queue.Queue()
-		self.maxThreads=maxThreads
-
-	def setTree(self,uploadTree):
-		self.uploadTree=uploadTree
-
-	def appendFile(self,uploadInfo):# [sockname,port,filename]
-		size = 0
-		try:
-			size = os.path.getsize(Utils.join(Utils.UPLOADS_DIR,uploadInfo[2]))
-		except:
-			pass
-		self.uploadTree.insert("",END,text=uploadInfo[2],values=(str(uploadInfo[0])+" "+str(uploadInfo[1]),size,"Waiting"))
-		children = self.uploadTree.get_children('')
-		uploadInfo.append(children[len(children)-1])
-		self.uploadList.append(tuple(uploadInfo))#abstract this up
-
-		for i in range(len(self.uploadThreads),self.maxThreads):
-			self.uploadNext()
-
-	def uploadNext(self):
-		if len(self.uploadThreads)<self.maxThreads and len(self.uploadList)>0:      
-			nextFileInfo = self.uploadList.pop(0)
-			ip = nextFileInfo[0]
-			port = nextFileInfo[1]
-			nextFile=nextFileInfo[2]
-			treeItem = nextFileInfo[3]
-			print("going to upload "+nextFile)
-
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((ip, port))
-			print("connected: "+str(ip)+" "+str(port))
-
-			t = IndUploadThread(s,nextFile,self.mailBox,self.uploadTree,treeItem)
-			self.uploadThreads.append((t,nextFile))
-			t.start()
-
-	def removeThread(self,itemToRemove):
-		self.uploadThreads.remove(itemToRemove)
-		self.uploadNext()
-	
-	def run(self):
-		while(1):
-			data = self.mailBox.get()
-			messageType = data[0]
-			data = data[1]
-			if messageType == "THREAD":
-				print("Upload thread returned")
-				self.removeThread(data)
-			elif messageType=="CANCEL":
-				for i in range(0,len(data)):
-					self.cancelUpload(data[i])
-			elif messageType=="FILE":#if its a new file to upload [ip,port,filename]
-				self.appendFile(data)
-
-	def cancelUpload(self,itemName):
-		handled = False
-		item = self.uploadTree.item(itemName)
-		progress = item["values"][2]
-		if progress == "Done":
-			return
-
-		itemToRemove = None
-		for i in range(0,len(self.uploadList)):#remove from list waiting to upload
-			if self.uploadList[i][3]==itemName:
-				self.uploadTree.set(itemName,"progress","Canceled")
-				itemToRemove = i
-				handled=True
-				break
-
-		if not(handled):
-			for i in range(0,len(self.uploadThreads)):#remove from current uploads
-				threadInfo = self.uploadThreads[i]
-				thread = threadInfo[0]
-				if thread.treeItem==itemName:
-					thread.stop()
-					self.uploadTree.set(itemName,"progress","Canceled")
-					break
-		else:
-			self.uploadList.pop(itemToRemove)
