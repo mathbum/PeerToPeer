@@ -7,30 +7,29 @@ from tkinter import ttk
 def mainWindow(master):
 	def SendMessageAction():
 		message = EntryBox.get("0.0",END).strip()+"\n"
-		indexList = listBox.curselection()
-		if message!="\n" and len(indexList)>0: #empty message
-			index = int(indexList[0])
-			listeningThread.connections[index][2].mailBox.put(("MESSAGE",message))
+		print(index[0])
+		if message!="\n" and index[0] != None: #empty message
+			listeningThread.connections[index[0]][2].mailBox.put(("MESSAGE",message))
 			putMyMessageInChat(message)
 			chatLog.yview(END)
 		EntryBox.delete("0.0",END)
 
 	def putMyMessageInChat(message):
-		indexList = listBox.curselection()
-		if len(indexList)>0:
-			index = int(indexList[0])
-			listeningThread.addMessage(index,("You: ",message))
+		if index[0] != None:
+			listeningThread.addMessage(index[0],("You: ",message))
 
 	def onSelect(event):
-		index = int(listBox.curselection()[0])
-		listeningThread.fillBrowseTab(index)
-		messages = listeningThread.connections[index][3]
-		chatLog.config(state=NORMAL)
-		chatLog.delete('1.0',END)
-		for i in range(0,len(messages)):
-			addMessage(messages[i])
-		chatLog.config(state=DISABLED)
-		chatLog.yview(END)
+		indexList = listBox.curselection()
+		if(len(indexList) > 0):
+			index[0] = int(indexList[0])
+			listeningThread.fillBrowseTab(index[0])
+			messages = listeningThread.connections[index[0]][3]
+			chatLog.config(state=NORMAL)
+			chatLog.delete('1.0',END)
+			for i in range(0,len(messages)):
+				addMessage(messages[i])
+			chatLog.config(state=DISABLED)
+			chatLog.yview(END)
 
 	def addMessage(message):
 		color = None
@@ -54,13 +53,11 @@ def mainWindow(master):
 
 	def download():
 		selections = browseTree.selection()
-		indexList = listBox.curselection()
-		if len(indexList)>0:
-			index = int(indexList[0])
-			listeningThread.connections[index][2].mailBox.put(("FILES",selections))
+		if index[0] != None:
+			listeningThread.connections[index[0]][2].mailBox.put(("FILES",selections))
 
 	tabs = ttk.Notebook(master)
-
+	index = [None]
 	# arealabel = Label(master,text="Connections:",font=("Times",14,"bold"))
 	# arealabel.pack(anchor=NW)
 	scrollbary = Scrollbar(master)
