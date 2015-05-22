@@ -24,16 +24,13 @@ class StoppableThread(threading.Thread):
 		_async_raise(self.ident, SystemExit)
 
 class ManagerThread(StoppableThread):
-	def __init__(self,maxThreads):
+	def __init__(self,maxThreads,tree):
 		super().__init__()
 		self.mailBox=queue.Queue()
 		self.maxThreads=maxThreads
 		self.transferList=[]
 		self.transferThreads=[]
-		self.tree = None
-
-	def setTree(self,tree):
-		self.tree=tree
+		self.tree = tree
 
 	def removeThread(self,itemToRemove):
 		try: #in case the thread is no longer in the transferThreads list
@@ -86,7 +83,7 @@ class ManagerThread(StoppableThread):
 				threadInfo = self.transferThreads[i]
 				thread = threadInfo[0]
 				if thread.treeItem==itemName:
-					thread.setCancelled(True)
+					thread.setCanceled(True)
 					thread.stop()
 					self.tree.set(itemName,"progress","Canceled")
 					handled=True
@@ -104,32 +101,23 @@ class TransferThread(StoppableThread):
 		self.tree=tree
 		self.treeItem = treeItem
 		self.fle=None#actual file object
-		self.isCancelled = False
+		self.isCanceled = False
 
-	def setCancelled(self,isCancelled):
-		self.isCancelled=isCancelled
+	def setCanceled(self,isCanceled):
+		self.isCanceled=isCanceled
 
 class ListeningThread(StoppableThread):
-	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager):
+	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox):
 		super().__init__()
 		self.peerIP=peerIP
 		self.peerPort=peerPort
 		self.listeningPort=listeningPort
 		self.uploadsManager=uploadsManager
 		self.downloadsManager=downloadsManager
-		self.chatLog = None
-		self.browseTree=None
-		self.listBox = None
+		self.chatLog = chatLog
+		self.browseTree = browseTree
+		self.listBox = listBox
 		self.connections=[] #(socket,serverthread,clientthread)
-
-	def setChatLog(self,chatLog):
-		self.chatLog=chatLog
-
-	def setBrowseTree(self,browseTree):
-		self.browseTree=browseTree
-
-	def setList(self,listBox):
-		self.listBox=listBox
 
 	def run(self):
 		try:#start off by trying to connect to other peer
@@ -205,8 +193,6 @@ class ServerThread(StoppableThread):
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
 				self.peerFolderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				strippedStruc = self.stripFolderStruc(self.peerFolderStruc,"")
-				# strippedStruc = self.fillBrowseTree()
-				# strippedStruc = self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
 				self.client.setFolderStruc(strippedStruc)
 			elif control==Utils.BEAT_HEADER:
 				pass
@@ -243,25 +229,18 @@ class ServerThread(StoppableThread):
 	def fillBrowseTree(self):
 		for i in self.browseTree.get_children():
 			self.browseTree.delete(i)
-		input("waiting: ")
 		self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
 
-	def fillTreeWithFolder(self,tree,root,filestruc,path):#remove the stipping of the files
-		"""Returns folderstruc without folder sizes"""
-		folder = []
+	def fillTreeWithFolder(self,tree,root,filestruc,path):
 		for i in range(0,len(filestruc)):
 			item = filestruc[i]
 			if isinstance(item,list):#if its a folder
 				itempath = Utils.join(path,item[0][0])
 				direc = tree.insert(root,END,itempath,text=item[0][0],values=(item[0][1],""))
-				prevfold=self.fillTreeWithFolder(tree,direc,item[1],itempath)
-				prevfold.insert(0,itempath)
-				folder.append(prevfold)
+				self.fillTreeWithFolder(tree,direc,item[1],itempath)
 			else:#if its a file
 				fileext = os.path.splitext(item[0])[1]
-				folder.append((Utils.join(path,item[0]),item[1]))
 				tree.insert(root,END,Utils.join(path,item[0]),text=item[0],values=(item[1],fileext))
-		return folder
 
 class ClientThread(StoppableThread):#responsible for sending messages to peer
 	def __init__(self,sock,managerMailbox):
@@ -523,17 +502,17 @@ class IndDownloadThread(TransferThread):
 				self.tree.set(self.treeItem,"progress","Done")
 				self.tree.move(self.treeItem,'',0)
 			else:
-				self.tree.set(self.treeItem,"progress","failed")
+				self.tree.set(self.treeItem,"progress","Failed")
 			self.managerMailbox.put(("THREAD",(self,self.filePath,succ,self.treeItem)))
 		except CancelException:
-			self.tree.set(self.treeItem,"progress","cancelled")
-			self.setCancelled(True)
+			self.tree.set(self.treeItem,"progress","Canceled")
+			self.setCanceled(True)
 			self.cancelDownload(conn)
 		except SystemExit:#stopped by another thread
 			self.cancelDownload(conn)     
 		except:
 			print("caught")
-			self.tree.set(self.treeItem,"progress","failed")
+			self.tree.set(self.treeItem,"progress","Failed")
 			print(self.filePath)
 			self.managerMailbox.put(("THREAD",(self,self.filePath,False,self.treeItem)))
 
@@ -546,4 +525,4 @@ class IndDownloadThread(TransferThread):
 				os.remove(self.fullFilePath)#check if it exists?
 			except:
 				pass
-		self.managerMailbox.put(("THREAD",(self,self.filePath,self.isCancelled,self.treeItem)))
+		self.managerMailbox.put(("THREAD",(self,self.filePath,self.isCanceled,self.treeItem)))

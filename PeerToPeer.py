@@ -4,11 +4,13 @@ import Utils,CustomThreads
 from tkinter import *
 from tkinter import ttk
 
-def mainWindow(listeningThread):
+def mainWindow(master):
 	def SendMessageAction():
 		message = EntryBox.get("0.0",END).strip()+"\n"
-		if message!="\n": #empty message
-			listeningThread.connections[0][2].mailBox.put(("MESSAGE",message))#send message to first person you connected to
+		indexList = listBox.curselection()
+		if message!="\n" and len(indexList)>0: #empty message
+			index = int(indexList[0])
+			listeningThread.connections[index][2].mailBox.put(("MESSAGE",message))
 			putMyMessageInChat(message)
 			ChatLog.yview(END)
 		EntryBox.delete("0.0",END)
@@ -25,31 +27,22 @@ def mainWindow(listeningThread):
 
 	def onSelect(event):
 		index = int(listBox.curselection()[0])
+		# messages = ChatLog.get('1.0',END+'-1c')
 		listeningThread.fillMessageAndBrowseTab(index)
 
 	def PressAction(event):
 		EntryBox.config(state=NORMAL)
 		SendMessageAction()
 
-	def CancelDownload():
-		selections = downloadTree.selection()
-		DOWNLOADS_MANAGER.mailBox.put(("CANCEL",selections))
-
-	def CancelUpload():
-		selections = uploadTree.selection()
-		print(selections)
-		UPLOADS_MANAGER.mailBox.put(("CANCEL",selections))
-
 	# def DisableEntry(event):
 	#   EntryBox.config(state=DISABLED)
 
 	def download():
 		selections = browseTree.selection()
-		# print(selections)
-		# print(browseTree.item(selections[0]))
-		listeningThread.connections[0][2].mailBox.put(("FILES",selections))#request file from first person you connected to
-
-	master = Tk()
+		indexList = listBox.curselection()
+		if len(indexList)>0:
+			index = int(indexList[0])
+			listeningThread.connections[index][2].mailBox.put(("FILES",selections))
 
 	tabs = ttk.Notebook(master)
 
@@ -59,25 +52,16 @@ def mainWindow(listeningThread):
 	listBox = Listbox(master,yscrollcommand=scrollbary.set)
 	listBox.pack(padx=(0,5),side=LEFT,fill=BOTH)
 	scrollbary.pack(side=LEFT,fill=Y)
-	listeningThread.setList(listBox)
 	listBox.bind('<<ListboxSelect>>', onSelect)
 
 	messageTab=Frame(master)
 	browseTab=Frame(master)
-	# downloadsTab=Frame(master)
-	# uploadsTab=Frame(master)
 	messF1=Frame(messageTab)
 	messF2=Frame(messageTab)
 	browseF1 = Frame(browseTab)
 	browseF2 = Frame(browseTab)
-	# downloadF1 = Frame(downloadsTab)
-	# downloadF2 = Frame(downloadsTab)
-	# uploadF1 = Frame(uploadsTab)
-	# uploadF2 = Frame(uploadsTab)
 	tabs.add(messageTab,text="Messaging",compound=TOP)
 	tabs.add(browseTab,text="Browse",compound=TOP)
-	# tabs.add(downloadsTab,text="Downloads",compound=TOP)
-	# tabs.add(uploadsTab,text="Uploads",compound=TOP)
 	tabs.pack(fill=BOTH, expand=True)
 
 	browseScroll = Scrollbar(browseF1)
@@ -97,33 +81,8 @@ def mainWindow(listeningThread):
 	downloadButton = Button(browseF2,text="download",command=download)  
 	downloadButton.pack()
 
-	# downloadScroll = Scrollbar(downloadF1)
-	# downloadTree = ttk.Treeview(downloadF1,yscrollcommand=downloadScroll.set)
-	# downloadTree["columns"]=("host","size","progress")
-	# downloadTree.column("#0", width=400)
-	# downloadTree.column("host",width=100)
-	# downloadTree.column("size", width=75)
-	# downloadTree.column("progress",width=75)
-	# downloadTree.heading("#0",text="Name",anchor=W)
-	# downloadTree.heading("size", text="Size",anchor=W)
-	# downloadTree.heading("host", text="Host",anchor=W)
-	# downloadTree.heading("progress", text="Progress",anchor=W)
-	# downloadScroll.config(command=downloadTree.yview)
-	# downloadScroll.pack(side=RIGHT,fill=Y)
-	# downloadTree.pack(fill=BOTH, expand=True)
-
-	# DOWNLOADS_MANAGER.setTree(downloadTree)
-	# DOWNLOADS_MANAGER.start()
-
-	# downloadCancelB = Button(downloadF2,text="cancel",command=CancelDownload)
-	# downloadCancelB.pack()
-
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
-	# downloadF1.pack(fill=BOTH, expand=True)
-	# downloadF2.pack()
-
-
 
 	ChatLog = Text(messF1, bd=0, bg="white", height="8", width="50", font="Arial")
 	ChatLog.config(state=DISABLED)
@@ -155,39 +114,21 @@ def mainWindow(listeningThread):
 	# print(downloadTree.item(children[1])["text"])
 	# print(downloadTree.identify_row(1))
 
-
-	# uploadScroll = Scrollbar(uploadF1)
-	# uploadTree = ttk.Treeview(uploadF1,yscrollcommand=uploadScroll.set)
-	# uploadTree["columns"]=("client","size","progress")
-	# uploadTree.column("#0", width=400)
-	# uploadTree.column("client",width=100)
-	# uploadTree.column("size", width=75)
-	# uploadTree.column("progress",width=75)
-	# uploadTree.heading("#0",text="Name",anchor=W)
-	# uploadTree.heading("size", text="Size",anchor=W)
-	# uploadTree.heading("client", text="Client",anchor=W)
-	# uploadTree.heading("progress", text="Progress",anchor=W)
-	# uploadScroll.config(command=uploadTree.yview)
-	# uploadScroll.pack(side=RIGHT,fill=Y)
-	# uploadTree.pack(fill=BOTH, expand=True)
-
-	# uploadCancelB= Button(uploadF2,text="cancel",command=CancelUpload)
-	# uploadCancelB.pack()
-
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
-	# uploadF1.pack(fill=BOTH, expand=True)
-	# uploadF2.pack()
 
-	# UPLOADS_MANAGER.setTree(uploadTree)
-	# UPLOADS_MANAGER.start()
+	return ChatLog,browseTree,listBox
 
-	listeningThread.setChatLog(ChatLog)
-	listeningThread.setBrowseTree(browseTree)
-	listeningThread.start()
-	return master
+def transferWindow(root,maxUploadThreads,maxdownloadThreads):
+	def CancelDownload():
+		selections = downloadTree.selection()
+		downloadsManager.mailBox.put(("CANCEL",selections))
 
-def transferWindow(root):
+	def CancelUpload():
+		selections = uploadTree.selection()
+		print(selections)
+		uploadsManager.mailBox.put(("CANCEL",selections))
+	
 	master = Toplevel(root)
 	tabs = ttk.Notebook(master)
 
@@ -216,7 +157,7 @@ def transferWindow(root):
 	downloadScroll.pack(side=RIGHT,fill=Y)
 	downloadTree.pack(fill=BOTH, expand=True)
 
-	downloadCancelB = Button(downloadF2,text="cancel")
+	downloadCancelB = Button(downloadF2,text="cancel",command=CancelDownload)
 	downloadCancelB.pack()
 
 	downloadF1.pack(fill=BOTH, expand=True)
@@ -237,26 +178,29 @@ def transferWindow(root):
 	uploadScroll.pack(side=RIGHT,fill=Y)
 	uploadTree.pack(fill=BOTH, expand=True)
 
-	uploadCancelB= Button(uploadF2,text="cancel")
+	uploadCancelB= Button(uploadF2,text="cancel",command=CancelUpload)
 	uploadCancelB.pack()
 
 	uploadF1.pack(fill=BOTH, expand=True)
 	uploadF2.pack()
+	
+	uploadsManager = CustomThreads.UploadManagerThread(maxUploadThreads,uploadTree)
+	downloadsManager = CustomThreads.DownloadManagerThread(maxdownloadThreads,downloadTree)
 
-	DOWNLOADS_MANAGER.setTree(downloadTree)
-	DOWNLOADS_MANAGER.start()
-	UPLOADS_MANAGER.setTree(uploadTree)
-	UPLOADS_MANAGER.start()
+	return uploadsManager,downloadsManager
 
 if (__name__ == "__main__"):
 	peerIP,peerPort,listeningPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
 	
-	UPLOADS_MANAGER = CustomThreads.UploadManagerThread(maxUploadThreads)
-	DOWNLOADS_MANAGER = CustomThreads.DownloadManagerThread(maxdownloadThreads)
-	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,UPLOADS_MANAGER,DOWNLOADS_MANAGER)
+	master = Tk()
+	ChatLog,browseTree,listBox = mainWindow(master)
+	uploadsManager,downloadsManager = transferWindow(master,maxUploadThreads,maxdownloadThreads)
+	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,ChatLog,browseTree,listBox)
 
-	root= mainWindow(listeningThread)
-	transferWindow(root)
+	uploadsManager.start()
+	downloadsManager.start()
+	listeningThread.start()
+
 	mainloop()
 
 	#replace some of the lists with class objects to increase readability
