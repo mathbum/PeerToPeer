@@ -122,22 +122,22 @@ class ListeningThread(StoppableThread):
 
 	def run(self):
 		try:#start off by trying to connect to other peer
-			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# s.connect((self.peerIP, self.peerPort))
-			# self.connectToPeer(s,self.peerIP)
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((self.peerIP, self.peerPort))
+			self.connectToPeer(s,self.peerIP)
 
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((self.peerIP, 5007))
-			self.connectToPeer(s,self.peerIP)
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((self.peerIP, 5008))
-			self.connectToPeer(s,self.peerIP)
+			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# s.connect((self.peerIP, 5007))
+			# self.connectToPeer(s,self.peerIP)
+			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# s.connect((self.peerIP, 5008))
+			# self.connectToPeer(s,self.peerIP)
 		except:
 			pass
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
 		# self.listeningPort=5008
-		self.listeningPort=5009
+		# self.listeningPort=5009
 
 		s1.bind(('',self.listeningPort))
 		s1.listen(1)# number of backloged connections
