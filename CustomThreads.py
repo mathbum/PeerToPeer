@@ -4,7 +4,7 @@ from tkinter import *
 from tkinter import ttk
 
 class CancelException(SystemError):
-  pass
+	pass
 
 def _async_raise(tid, exctype):
 	"""raises the exception, performs cleanup if needed"""
@@ -100,7 +100,7 @@ class TransferThread(StoppableThread):
 		super().__init__()
 		self.sock = sock
 		self.filePath=filePath#filepath to the server and download manager
-		self.managerMailbox=mailbox		
+		self.managerMailbox=mailbox   
 		self.tree=tree
 		self.treeItem = treeItem
 		self.fle=None#actual file object
@@ -119,6 +119,7 @@ class ListeningThread(StoppableThread):
 		self.downloadsManager=downloadsManager
 		self.chatLog = None
 		self.browseTree=None
+		self.listBox = None
 		self.connections=[] #(socket,serverthread,clientthread)
 
 	def setChatLog(self,chatLog):
@@ -127,14 +128,28 @@ class ListeningThread(StoppableThread):
 	def setBrowseTree(self,browseTree):
 		self.browseTree=browseTree
 
+	def setList(self,listBox):
+		self.listBox=listBox
+
 	def run(self):
 		try:#start off by trying to connect to other peer
 			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 			s.connect((self.peerIP, self.peerPort))
 			self.connectToPeer(s,self.peerIP)
+
+			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# s.connect((self.peerIP, 5007))
+			# self.connectToPeer(s,self.peerIP)
+			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# s.connect((self.peerIP, 5008))
+			# self.connectToPeer(s,self.peerIP)
 		except:
 			pass
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		# self.listeningPort=5007
+		# self.listeningPort=5008
+		# self.listeningPort=5009
+
 		s1.bind(('',self.listeningPort))
 		s1.listen(1)# number of backloged connections
 		while 1:
@@ -142,12 +157,19 @@ class ListeningThread(StoppableThread):
 			print('Connection address: '+str(addr))
 			self.connectToPeer(s2,addr[0])
 
+	# def addMessage(self,index,message):
+	#   self.connections[index][3].append(message)
+
 	def connectToPeer(self,sock,addressIP):
 		client = ClientThread(sock,self.downloadsManager.mailBox)
 		server = ServerThread(sock,self.chatLog,self.uploadsManager.mailBox,client,self.browseTree,addressIP)
 		client.start()
 		server.start()
 		self.connections.append((sock,server,client))
+		self.listBox.insert(END,addressIP)
+
+	def fillMessageAndBrowseTab(self,index):
+		self.connections[index][1].fillBrowseTree()
 
 class ServerThread(StoppableThread):
 	def __init__(self,sock,chatLog,managerMailbox,client,browseTree,ip):
@@ -158,6 +180,7 @@ class ServerThread(StoppableThread):
 		self.client=client
 		self.browseTree=browseTree
 		self.ip = ip
+		self.peerFolderStruc=None
 
 	def run(self):
 		while 1:
@@ -180,8 +203,10 @@ class ServerThread(StoppableThread):
 				self.sock.send(Utils.LIST_RES_HEADER+Utils.intToBytes(size,4)+encodedStruc)
 			elif control == Utils.LIST_RES_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,(self,self.client)))
-				folderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
-				strippedStruc = self.fillTreeWithFolder(self.browseTree,"",folderStruc,"")
+				self.peerFolderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
+				strippedStruc = self.stripFolderStruc(self.peerFolderStruc,"")
+				# strippedStruc = self.fillBrowseTree()
+				# strippedStruc = self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
 				self.client.setFolderStruc(strippedStruc)
 			elif control==Utils.BEAT_HEADER:
 				pass
@@ -200,7 +225,28 @@ class ServerThread(StoppableThread):
 			self.chatLog.yview(END)
 			Utils.playGotMessageSound()
 
-	def fillTreeWithFolder(self,tree,root,filestruc,path):
+	def stripFolderStruc(self,filestruc,path):
+		"""Returns folderstruc without folder sizes"""
+		folder = []
+		for i in range(0,len(filestruc)):
+			item = filestruc[i]
+			if isinstance(item,list):#if its a folder
+				itempath = Utils.join(path,item[0][0])
+				prevfold=self.stripFolderStruc(item[1],itempath)
+				prevfold.insert(0,itempath)
+				folder.append(prevfold)
+			else:#if its a file
+				fileext = os.path.splitext(item[0])[1]
+				folder.append((Utils.join(path,item[0]),item[1]))
+		return folder
+
+	def fillBrowseTree(self):
+		for i in self.browseTree.get_children():
+			self.browseTree.delete(i)
+		input("waiting: ")
+		self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
+
+	def fillTreeWithFolder(self,tree,root,filestruc,path):#remove the stipping of the files
 		"""Returns folderstruc without folder sizes"""
 		folder = []
 		for i in range(0,len(filestruc)):
@@ -484,7 +530,7 @@ class IndDownloadThread(TransferThread):
 			self.setCancelled(True)
 			self.cancelDownload(conn)
 		except SystemExit:#stopped by another thread
-			self.cancelDownload(conn)			
+			self.cancelDownload(conn)     
 		except:
 			print("caught")
 			self.tree.set(self.treeItem,"progress","failed")

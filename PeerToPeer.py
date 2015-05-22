@@ -23,6 +23,10 @@ def mainWindow(listeningThread):
 			ChatLog.config(state=DISABLED)
 			ChatLog.yview(END)
 
+	def onSelect(event):
+		index = int(listBox.curselection()[0])
+		listeningThread.fillMessageAndBrowseTab(index)
+
 	def PressAction(event):
 		EntryBox.config(state=NORMAL)
 		SendMessageAction()
@@ -49,22 +53,31 @@ def mainWindow(listeningThread):
 
 	tabs = ttk.Notebook(master)
 
+	# arealabel = Label(master,text="Connections:",font=("Times",14,"bold"))
+	# arealabel.pack(anchor=NW)
+	scrollbary = Scrollbar(master)
+	listBox = Listbox(master,yscrollcommand=scrollbary.set)
+	listBox.pack(padx=(0,5),side=LEFT,fill=BOTH)
+	scrollbary.pack(side=LEFT,fill=Y)
+	listeningThread.setList(listBox)
+	listBox.bind('<<ListboxSelect>>', onSelect)
+
 	messageTab=Frame(master)
 	browseTab=Frame(master)
-	downloadsTab=Frame(master)
-	uploadsTab=Frame(master)
+	# downloadsTab=Frame(master)
+	# uploadsTab=Frame(master)
 	messF1=Frame(messageTab)
 	messF2=Frame(messageTab)
 	browseF1 = Frame(browseTab)
 	browseF2 = Frame(browseTab)
-	downloadF1 = Frame(downloadsTab)
-	downloadF2 = Frame(downloadsTab)
-	uploadF1 = Frame(uploadsTab)
-	uploadF2 = Frame(uploadsTab)
+	# downloadF1 = Frame(downloadsTab)
+	# downloadF2 = Frame(downloadsTab)
+	# uploadF1 = Frame(uploadsTab)
+	# uploadF2 = Frame(uploadsTab)
 	tabs.add(messageTab,text="Messaging",compound=TOP)
 	tabs.add(browseTab,text="Browse",compound=TOP)
-	tabs.add(downloadsTab,text="Downloads",compound=TOP)
-	tabs.add(uploadsTab,text="Uploads",compound=TOP)
+	# tabs.add(downloadsTab,text="Downloads",compound=TOP)
+	# tabs.add(uploadsTab,text="Uploads",compound=TOP)
 	tabs.pack(fill=BOTH, expand=True)
 
 	browseScroll = Scrollbar(browseF1)
@@ -84,31 +97,31 @@ def mainWindow(listeningThread):
 	downloadButton = Button(browseF2,text="download",command=download)  
 	downloadButton.pack()
 
-	downloadScroll = Scrollbar(downloadF1)
-	downloadTree = ttk.Treeview(downloadF1,yscrollcommand=downloadScroll.set)
-	downloadTree["columns"]=("host","size","progress")
-	downloadTree.column("#0", width=400)
-	downloadTree.column("host",width=100)
-	downloadTree.column("size", width=75)
-	downloadTree.column("progress",width=75)
-	downloadTree.heading("#0",text="Name",anchor=W)
-	downloadTree.heading("size", text="Size",anchor=W)
-	downloadTree.heading("host", text="Host",anchor=W)
-	downloadTree.heading("progress", text="Progress",anchor=W)
-	downloadScroll.config(command=downloadTree.yview)
-	downloadScroll.pack(side=RIGHT,fill=Y)
-	downloadTree.pack(fill=BOTH, expand=True)
+	# downloadScroll = Scrollbar(downloadF1)
+	# downloadTree = ttk.Treeview(downloadF1,yscrollcommand=downloadScroll.set)
+	# downloadTree["columns"]=("host","size","progress")
+	# downloadTree.column("#0", width=400)
+	# downloadTree.column("host",width=100)
+	# downloadTree.column("size", width=75)
+	# downloadTree.column("progress",width=75)
+	# downloadTree.heading("#0",text="Name",anchor=W)
+	# downloadTree.heading("size", text="Size",anchor=W)
+	# downloadTree.heading("host", text="Host",anchor=W)
+	# downloadTree.heading("progress", text="Progress",anchor=W)
+	# downloadScroll.config(command=downloadTree.yview)
+	# downloadScroll.pack(side=RIGHT,fill=Y)
+	# downloadTree.pack(fill=BOTH, expand=True)
 
-	DOWNLOADS_MANAGER.setTree(downloadTree)
-	DOWNLOADS_MANAGER.start()
+	# DOWNLOADS_MANAGER.setTree(downloadTree)
+	# DOWNLOADS_MANAGER.start()
 
-	downloadCancelB = Button(downloadF2,text="cancel",command=CancelDownload)
-	downloadCancelB.pack()
+	# downloadCancelB = Button(downloadF2,text="cancel",command=CancelDownload)
+	# downloadCancelB.pack()
 
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
-	downloadF1.pack(fill=BOTH, expand=True)
-	downloadF2.pack()
+	# downloadF1.pack(fill=BOTH, expand=True)
+	# downloadF2.pack()
 
 
 
@@ -143,6 +156,72 @@ def mainWindow(listeningThread):
 	# print(downloadTree.identify_row(1))
 
 
+	# uploadScroll = Scrollbar(uploadF1)
+	# uploadTree = ttk.Treeview(uploadF1,yscrollcommand=uploadScroll.set)
+	# uploadTree["columns"]=("client","size","progress")
+	# uploadTree.column("#0", width=400)
+	# uploadTree.column("client",width=100)
+	# uploadTree.column("size", width=75)
+	# uploadTree.column("progress",width=75)
+	# uploadTree.heading("#0",text="Name",anchor=W)
+	# uploadTree.heading("size", text="Size",anchor=W)
+	# uploadTree.heading("client", text="Client",anchor=W)
+	# uploadTree.heading("progress", text="Progress",anchor=W)
+	# uploadScroll.config(command=uploadTree.yview)
+	# uploadScroll.pack(side=RIGHT,fill=Y)
+	# uploadTree.pack(fill=BOTH, expand=True)
+
+	# uploadCancelB= Button(uploadF2,text="cancel",command=CancelUpload)
+	# uploadCancelB.pack()
+
+	browseF1.pack(fill=BOTH, expand=True)
+	browseF2.pack()
+	# uploadF1.pack(fill=BOTH, expand=True)
+	# uploadF2.pack()
+
+	# UPLOADS_MANAGER.setTree(uploadTree)
+	# UPLOADS_MANAGER.start()
+
+	listeningThread.setChatLog(ChatLog)
+	listeningThread.setBrowseTree(browseTree)
+	listeningThread.start()
+	return master
+
+def transferWindow(root):
+	master = Toplevel(root)
+	tabs = ttk.Notebook(master)
+
+	downloadsTab=Frame(master)
+	uploadsTab=Frame(master)
+	downloadF1 = Frame(downloadsTab)
+	downloadF2 = Frame(downloadsTab)
+	uploadF1 = Frame(uploadsTab)
+	uploadF2 = Frame(uploadsTab)
+	tabs.add(downloadsTab,text="Downloads",compound=TOP)
+	tabs.add(uploadsTab,text="Uploads",compound=TOP)
+	tabs.pack(fill=BOTH, expand=True)
+
+	downloadScroll = Scrollbar(downloadF1)
+	downloadTree = ttk.Treeview(downloadF1,yscrollcommand=downloadScroll.set)
+	downloadTree["columns"]=("host","size","progress")
+	downloadTree.column("#0", width=400)
+	downloadTree.column("host",width=100)
+	downloadTree.column("size", width=75)
+	downloadTree.column("progress",width=75)
+	downloadTree.heading("#0",text="Name",anchor=W)
+	downloadTree.heading("size", text="Size",anchor=W)
+	downloadTree.heading("host", text="Host",anchor=W)
+	downloadTree.heading("progress", text="Progress",anchor=W)
+	downloadScroll.config(command=downloadTree.yview)
+	downloadScroll.pack(side=RIGHT,fill=Y)
+	downloadTree.pack(fill=BOTH, expand=True)
+
+	downloadCancelB = Button(downloadF2,text="cancel")
+	downloadCancelB.pack()
+
+	downloadF1.pack(fill=BOTH, expand=True)
+	downloadF2.pack()
+
 	uploadScroll = Scrollbar(uploadF1)
 	uploadTree = ttk.Treeview(uploadF1,yscrollcommand=uploadScroll.set)
 	uploadTree["columns"]=("client","size","progress")
@@ -158,23 +237,16 @@ def mainWindow(listeningThread):
 	uploadScroll.pack(side=RIGHT,fill=Y)
 	uploadTree.pack(fill=BOTH, expand=True)
 
-	uploadCancelB= Button(uploadF2,text="cancel",command=CancelUpload)
+	uploadCancelB= Button(uploadF2,text="cancel")
 	uploadCancelB.pack()
 
-	browseF1.pack(fill=BOTH, expand=True)
-	browseF2.pack()
 	uploadF1.pack(fill=BOTH, expand=True)
 	uploadF2.pack()
 
+	DOWNLOADS_MANAGER.setTree(downloadTree)
+	DOWNLOADS_MANAGER.start()
 	UPLOADS_MANAGER.setTree(uploadTree)
 	UPLOADS_MANAGER.start()
-
-	listeningThread.setChatLog(ChatLog)
-	listeningThread.setBrowseTree(browseTree)
-	listeningThread.start()
-
-
-	mainloop()
 
 if (__name__ == "__main__"):
 	peerIP,peerPort,listeningPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
@@ -183,18 +255,22 @@ if (__name__ == "__main__"):
 	DOWNLOADS_MANAGER = CustomThreads.DownloadManagerThread(maxdownloadThreads)
 	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,UPLOADS_MANAGER,DOWNLOADS_MANAGER)
 
-	
-	mainWindow(listeningThread)
+	root= mainWindow(listeningThread)
+	transferWindow(root)
+	mainloop()
 
 	#replace some of the lists with class objects to increase readability
 
+	#gui
 	#settings for list of ip's
 	#put ip address instead of "Other" in chat
 
 	#make all threads close if gui closes
+	#max the size of saved messages
 	#make getpacket not be an active wait
 	#put hardcoded strings to headers
 	#fix gui lag while downloading
+	#setting for upload and download locations
 	#set proper update rates for upload and downloads
 	#allow dynamically add and delete files to their upload folders
 	#if a download is 50% and request it again it starts at 50% not 0%
