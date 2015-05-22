@@ -1,4 +1,6 @@
 import socket,os,Settings,winsound,re,datetime
+from tkinter import *
+from tkinter import ttk
 PACKET_SIZE=1048576 #102400
 SEND_FILE_HEADER = b'SDFL'
 FILE_REQUEST = b'FILE'
@@ -178,8 +180,6 @@ def charToInt(char):#make special chars be ascii value, digits be 128-136 and ch
 	else:
 		return ord(char)
 
-
-
 def listfolder(folderpath):
 	"""Lists files and folders and their associated size"""
 	files = os.listdir(folderpath)
@@ -210,6 +210,13 @@ def listfolder(folderpath):
 			folder.append((orderedfiles[i],size))
 			totalsize+=size
 	return folder,totalsize
+
+def addMessageToLog(chatLog,color,message):
+	LineNumber = float(chatLog.index('end'))-1.0
+	numToHilight = float("."+str(len(message[0])))
+	chatLog.insert(END, message[0] + message[1])
+	chatLog.tag_add(message[0], LineNumber, LineNumber+numToHilight)
+	chatLog.tag_config(message[0], foreground=color, font=("Arial", 12, "bold"))
 
 def getSettings():
 	Settings.clean()

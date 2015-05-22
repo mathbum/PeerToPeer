@@ -12,23 +12,38 @@ def mainWindow(master):
 			index = int(indexList[0])
 			listeningThread.connections[index][2].mailBox.put(("MESSAGE",message))
 			putMyMessageInChat(message)
-			ChatLog.yview(END)
+			chatLog.yview(END)
 		EntryBox.delete("0.0",END)
 
 	def putMyMessageInChat(message):
-		ChatLog.config(state=NORMAL)
-		if ChatLog.index('end') != None:
-			LineNumber = float(ChatLog.index('end'))-1.0
-			ChatLog.insert(END, "You: " + message)
-			ChatLog.tag_add("You", LineNumber, LineNumber+.4)
-			ChatLog.tag_config("You", foreground="#FF8000", font=("Arial", 12, "bold"))
-			ChatLog.config(state=DISABLED)
-			ChatLog.yview(END)
+		indexList = listBox.curselection()
+		if len(indexList)>0:
+			index = int(indexList[0])
+			listeningThread.addMessage(index,("You: ",message))
 
 	def onSelect(event):
 		index = int(listBox.curselection()[0])
-		# messages = ChatLog.get('1.0',END+'-1c')
-		listeningThread.fillMessageAndBrowseTab(index)
+		listeningThread.fillBrowseTab(index)
+		messages = listeningThread.connections[index][3]
+		chatLog.config(state=NORMAL)
+		chatLog.delete('1.0',END)
+		for i in range(0,len(messages)):
+			addMessage(messages[i])
+		chatLog.config(state=DISABLED)
+		chatLog.yview(END)
+
+	def addMessage(message):
+		color = None
+		if message[0]=="You: ":
+			color = "#FF8000"
+		else:
+			color = "#04B404"
+		Utils.addMessageToLog(chatLog,color,message)
+		# LineNumber = float(chatLog.index('end'))-1.0
+		# numToHilight = float("."+str(len(message[0])))
+		# chatLog.insert(END, message[0] + message[1])
+		# chatLog.tag_add(message[0], LineNumber, LineNumber+numToHilight)
+		# chatLog.tag_config(message[0], foreground=color, font=("Arial", 12, "bold"))
 
 	def PressAction(event):
 		EntryBox.config(state=NORMAL)
@@ -84,11 +99,11 @@ def mainWindow(master):
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
 
-	ChatLog = Text(messF1, bd=0, bg="white", height="8", width="50", font="Arial")
-	ChatLog.config(state=DISABLED)
+	chatLog = Text(messF1, bd=0, bg="white", height="8", width="50", font="Arial")
+	chatLog.config(state=DISABLED)
 
-	scrollbar = Scrollbar(messF1, command=ChatLog.yview)#, cursor="heart")
-	ChatLog['yscrollcommand'] = scrollbar.set
+	scrollbar = Scrollbar(messF1, command=chatLog.yview)#, cursor="heart")
+	chatLog['yscrollcommand'] = scrollbar.set
 
 	SendButton = Button(messF2, font=30, text="Send", width="12", height=5, bd=0, bg="#FFBF00", activebackground="#FACC2E",command=SendMessageAction)
 
@@ -97,7 +112,7 @@ def mainWindow(master):
 	EntryBox.bind("<KeyRelease-Return>", PressAction)
 
 	scrollbar.pack(side=RIGHT,fill=Y,pady=(5,5))
-	ChatLog.pack(pady=(5,5),fill=BOTH, expand=True)
+	chatLog.pack(pady=(5,5),fill=BOTH, expand=True)
 	SendButton.pack(side=RIGHT,pady=(0,5))
 	EntryBox.pack(pady=(0,5),fill=BOTH, expand=True)
 
@@ -117,7 +132,7 @@ def mainWindow(master):
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
 
-	return ChatLog,browseTree,listBox
+	return chatLog,browseTree,listBox
 
 def transferWindow(root,maxUploadThreads,maxdownloadThreads):
 	def CancelDownload():
@@ -193,9 +208,9 @@ if (__name__ == "__main__"):
 	peerIP,peerPort,listeningPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
 	
 	master = Tk()
-	ChatLog,browseTree,listBox = mainWindow(master)
+	chatLog,browseTree,listBox = mainWindow(master)
 	uploadsManager,downloadsManager = transferWindow(master,maxUploadThreads,maxdownloadThreads)
-	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,ChatLog,browseTree,listBox)
+	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox)
 
 	uploadsManager.start()
 	downloadsManager.start()
@@ -207,9 +222,9 @@ if (__name__ == "__main__"):
 
 	#gui
 	#settings for list of ip's
-	#put ip address instead of "Other" in chat
 
 	#make all threads close if gui closes
+	#remove connections
 	#max the size of saved messages
 	#make getpacket not be an active wait
 	#put hardcoded strings to headers

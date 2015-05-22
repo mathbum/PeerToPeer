@@ -117,26 +117,27 @@ class ListeningThread(StoppableThread):
 		self.chatLog = chatLog
 		self.browseTree = browseTree
 		self.listBox = listBox
-		self.connections=[] #(socket,serverthread,clientthread)
+		self.selectedIndex=None
+		self.connections=[] #(socket,serverthread,clientthread,messagelist)
 
 	def run(self):
 		try:#start off by trying to connect to other peer
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((self.peerIP, self.peerPort))
-			self.connectToPeer(s,self.peerIP)
+			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# s.connect((self.peerIP, self.peerPort))
+			# self.connectToPeer(s,self.peerIP)
 
-			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# s.connect((self.peerIP, 5007))
-			# self.connectToPeer(s,self.peerIP)
-			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# s.connect((self.peerIP, 5008))
-			# self.connectToPeer(s,self.peerIP)
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((self.peerIP, 5007))
+			self.connectToPeer(s,self.peerIP)
+			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			s.connect((self.peerIP, 5008))
+			self.connectToPeer(s,self.peerIP)
 		except:
 			pass
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
 		# self.listeningPort=5008
-		# self.listeningPort=5009
+		self.listeningPort=5009
 
 		s1.bind(('',self.listeningPort))
 		s1.listen(1)# number of backloged connections
@@ -145,29 +146,66 @@ class ListeningThread(StoppableThread):
 			print('Connection address: '+str(addr))
 			self.connectToPeer(s2,addr[0])
 
-	# def addMessage(self,index,message):
-	#   self.connections[index][3].append(message)
+	def addOtherMessage(self,server,message):
+		index = None#and if none matches? possible?
+		for i in range(0,len(self.connections)):
+			if(self.connections[i][1]==server):
+				index=i
+				break
+		self.connections[index][3].append(message)
+		print(index,self.selectedIndex,message)
+		if self.selectedIndex==index:
+			self.putMessageInLog(message,False)
+		else:
+			pass#hilight the listitem
+		Utils.playGotMessageSound()
+
+	def addMessage(self,index,message):
+	  self.connections[index][3].append(message)
+	  print(index,self.selectedIndex,message)
+	  if self.selectedIndex==index:
+	  	self.putMessageInLog(message,True)
+
+	def putMessageInLog(self,message,fromSelf):
+		self.chatLog.config(state=NORMAL)
+		color = None
+		if fromSelf:
+			color = "#FF8000"
+		else:
+			color = "#04B404"
+		Utils.addMessageToLog(self.chatLog,color,message)
+		# LineNumber = float(self.chatLog.index('end'))-1.0
+		# numToHilight = float("."+str(len(message[0])))
+		# self.chatLog.insert(END, message[0] + message[1])
+		# self.chatLog.tag_add(message[0], LineNumber, LineNumber+numToHilight)
+		# self.chatLog.tag_config(message[0], foreground=color, font=("Arial", 12, "bold"))
+		self.chatLog.config(state=DISABLED)
+		self.chatLog.yview(END)
 
 	def connectToPeer(self,sock,addressIP):
 		client = ClientThread(sock,self.downloadsManager.mailBox)
-		server = ServerThread(sock,self.chatLog,self.uploadsManager.mailBox,client,self.browseTree,addressIP)
+		server = ServerThread(sock,self.uploadsManager.mailBox,client,self.browseTree,addressIP,self)
 		client.start()
 		server.start()
-		self.connections.append((sock,server,client))
+		self.connections.append((sock,server,client,[]))
 		self.listBox.insert(END,addressIP)
+		if self.selectedIndex==None:
+			self.selectedIndex=0
+			self.listBox.select_set(0)
 
-	def fillMessageAndBrowseTab(self,index):
+	def fillBrowseTab(self,index):
 		self.connections[index][1].fillBrowseTree()
+		self.selectedIndex=index
 
 class ServerThread(StoppableThread):
-	def __init__(self,sock,chatLog,managerMailbox,client,browseTree,ip):
+	def __init__(self,sock,managerMailbox,client,browseTree,ip,listeningThread):
 		super().__init__()
 		self.sock=sock
-		self.chatLog=chatLog
 		self.managerMailbox=managerMailbox
 		self.client=client
 		self.browseTree=browseTree
 		self.ip = ip
+		self.listeningThread=listeningThread
 		self.peerFolderStruc=None
 
 	def run(self):
@@ -198,18 +236,19 @@ class ServerThread(StoppableThread):
 				pass
 
 	def putOtherMessageInChat(self,message):
-		self.chatLog.config(state=NORMAL)
-		if self.chatLog.index('end') != None:#what is this?
-			# try:#why is there a try catch around this?
-			LineNumber = float(self.chatLog.index('end'))-1.0
-			# except:
-				# pass
-			self.chatLog.insert(END, "Other: " + message)
-			self.chatLog.tag_add("Other", LineNumber, LineNumber+0.6)
-			self.chatLog.tag_config("Other", foreground="#04B404", font=("Arial", 12, "bold"))
-			self.chatLog.config(state=DISABLED)
-			self.chatLog.yview(END)
-			Utils.playGotMessageSound()
+		self.listeningThread.addOtherMessage(self,(self.ip+": ",message))
+		# self.chatLog.config(state=NORMAL)
+		# if self.chatLog.index('end') != None:#what is this?
+		# 	# try:#why is there a try catch around this?
+		# 	LineNumber = float(self.chatLog.index('end'))-1.0
+		# 	# except:
+		# 		# pass
+		# 	self.chatLog.insert(END, "Other: " + message)
+		# 	self.chatLog.tag_add("Other", LineNumber, LineNumber+0.6)
+		# 	self.chatLog.tag_config("Other", foreground="#04B404", font=("Arial", 12, "bold"))
+		# 	self.chatLog.config(state=DISABLED)
+		# 	self.chatLog.yview(END)
+		# 	Utils.playGotMessageSound()
 
 	def stripFolderStruc(self,filestruc,path):
 		"""Returns folderstruc without folder sizes"""
