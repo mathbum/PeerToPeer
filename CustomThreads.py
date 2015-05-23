@@ -187,7 +187,7 @@ class ListeningThread(StoppableThread):
 			known = self.verifyResponse(sock, info, addressIP)
 		else:
 			print("couldnt find info!!")
-			known = self.verifyResponse(sock, info, addressIP),
+			known = self.verifyResponse(sock, info, addressIP)
 			print("trying to find info again")
 			info = self.getUserInfo(addressIP, None)
 			print(info)
@@ -289,13 +289,13 @@ class ListeningThread(StoppableThread):
 			self.connectToPeer(sock, addressIP)		
 		elif control == Utils.FAILED_VERIFY_HEADER:
 			sock.close() #close everything
-		elif control == Utils.EXHANGE_INFO_HEADER:
+		elif control == Utils.EXCHANGE_INFO_HEADER:
 			self.silentExchangeQuestion(sock, addressIP)
 		else:	
 			print("unknown control message:", control)
 		
 	def connectToPeer(self,sock,addressIP):
-		client = ClientThread(sock,self.downloadsManager.mailBox,)
+		client = ClientThread(sock,self.downloadsManager.mailBox)
 		server = ServerThread(sock,self.uploadsManager.mailBox,client,self.browseTree,addressIP,self)
 		client.start()
 		server.start()
@@ -309,6 +309,9 @@ class ListeningThread(StoppableThread):
 	def fillBrowseTab(self,index):
 		self.connections[index][1].fillBrowseTree()
 		self.selectedIndex=index
+		
+	def isCurrentServer(self, server):
+		return self.connections[self.selectedIndex][1] == server
 
 class ServerThread(StoppableThread):
 	def __init__(self,sock,managerMailbox,client,browseTree,ip,listeningThread):
@@ -345,6 +348,8 @@ class ServerThread(StoppableThread):
 				self.peerFolderStruc = pickle.loads(Utils.getPacketOrStop(self.sock,size,(self,self.client)))
 				strippedStruc = self.stripFolderStruc(self.peerFolderStruc,"")
 				self.client.setFolderStruc(strippedStruc)
+				if(self.listeningThread.isCurrentServer(self)):
+					self.fillBrowseTree()
 			elif control==Utils.BEAT_HEADER:
 				pass
 
@@ -372,7 +377,7 @@ class ServerThread(StoppableThread):
 		self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
 
 	def fillTreeWithFolder(self,tree,root,filestruc,path):
-		if filestruc is None:
+		if filestruc == None:
 			return
 		for i in range(0,len(filestruc)):
 			item = filestruc[i]
