@@ -2,6 +2,7 @@ import os,socket,inspect,ctypes,threading,queue,time,math,pickle
 import Utils
 from tkinter import *
 from tkinter import ttk
+import tkinter.messagebox as messagebox
 
 class CancelException(SystemError):
 	pass
@@ -192,9 +193,19 @@ class ListeningThread(StoppableThread):
 			print(info)
 			if not info == None:
 				self.sendInfoToVerify(sock, info)
-		if not known:
+		print(known)
+		if known == EXCHANGE_INFO_HEADER:
 			result = messagebox.askquestion("title","text")
 			if result=="yes":
+				print("exchange info")
+				self.silentExchange(sock, addressIP)
+			else:
+				sock.send(Utils.FAILED_VERIFY_HEADER)
+				sock.close()
+		elif not known:
+			result = messagebox.askquestion("title","text")
+			if result=="yes":
+				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
 			else:
 				sock.send(Utils.FAILED_VERIFY_HEADER)
@@ -207,11 +218,11 @@ class ListeningThread(StoppableThread):
 	def exhangeInfoWithNewContact(self, sock, addressIP):
 		data = "" + self.secretKey + ";" + self.username
 		size = len(data)
-		sock.send(Utils.EXHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		sock.send(Utils.EXCHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 		control = Utils.getPacketOrStop(sock,4,()) 
 		if control == Utils.GO_AHEAD_HEADER:
 			control = Utils.getPacketOrStop(sock,4,()) 
-		if control == Utils.EXHANGE_INFO_HEADER:
+		if control == Utils.EXCHANGE_INFO_HEADER:
 			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
 			resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
 			print(resp)
@@ -224,7 +235,7 @@ class ListeningThread(StoppableThread):
 	def silentExchange(self, sock, addressIP):
 		data = "" + self.secretKey + ";" + self.username
 		size = len(data)
-		sock.send(Utils.EXHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		sock.send(Utils.EXCHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 		size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
 		resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
 		print(resp)
@@ -251,6 +262,7 @@ class ListeningThread(StoppableThread):
 	def verifyResponse(self, sock, info, addressIP):
 		while 1:
 			control = Utils.getPacketOrStop(sock,4,()) #todo: dont crash this thread...........
+			print(control)
 			if control == Utils.VERIFY_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
 				resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
@@ -259,8 +271,10 @@ class ListeningThread(StoppableThread):
 				if info == None:
 					info = self.getUserInfo(addressIP, theirID)
 				print(myKey, self.secretKey)
-				print(theirID, info[2])
+				#print(theirID, info[2])
 				return myKey == self.secretKey and not info == None and info[2] == theirID
+			elif control == Utils.EXCHANGE_INFO_HEADER:
+				return Utils.EXCHANGE_INFO_HEADER
 			else:
 				return False #this should be fine?
 	
