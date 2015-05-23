@@ -107,7 +107,7 @@ class TransferThread(StoppableThread):
 		self.isCanceled=isCanceled
 
 class ListeningThread(StoppableThread):
-	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox):
+	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod):
 		super().__init__()
 		self.peerIP=peerIP
 		self.peerPort=peerPort
@@ -117,6 +117,7 @@ class ListeningThread(StoppableThread):
 		self.chatLog = chatLog
 		self.browseTree = browseTree
 		self.listBox = listBox
+		self.onSelectMethod=onSelectMethod
 		self.selectedIndex=None
 		self.connections=[] #(socket,serverthread,clientthread,messagelist)
 
@@ -153,16 +154,15 @@ class ListeningThread(StoppableThread):
 				index=i
 				break
 		self.connections[index][3].append(message)
-		print(index,self.selectedIndex,message)
 		if self.selectedIndex==index:
 			self.putMessageInLog(message,False)
 		else:
+			self.listBox.itemconfig(index,bg="yellow")
 			pass#hilight the listitem
 		Utils.playGotMessageSound()
 
 	def addMessage(self,index,message):
 	  self.connections[index][3].append(message)
-	  print(index,self.selectedIndex,message)
 	  if self.selectedIndex==index:
 	  	self.putMessageInLog(message,True)
 
@@ -174,11 +174,6 @@ class ListeningThread(StoppableThread):
 		else:
 			color = "#04B404"
 		Utils.addMessageToLog(self.chatLog,color,message)
-		# LineNumber = float(self.chatLog.index('end'))-1.0
-		# numToHilight = float("."+str(len(message[0])))
-		# self.chatLog.insert(END, message[0] + message[1])
-		# self.chatLog.tag_add(message[0], LineNumber, LineNumber+numToHilight)
-		# self.chatLog.tag_config(message[0], foreground=color, font=("Arial", 12, "bold"))
 		self.chatLog.config(state=DISABLED)
 		self.chatLog.yview(END)
 
@@ -192,6 +187,7 @@ class ListeningThread(StoppableThread):
 		if self.selectedIndex==None:
 			self.selectedIndex=0
 			self.listBox.select_set(0)
+		self.onSelectMethod(None)
 
 	def fillBrowseTab(self,index):
 		self.connections[index][1].fillBrowseTree()
@@ -237,18 +233,6 @@ class ServerThread(StoppableThread):
 
 	def putOtherMessageInChat(self,message):
 		self.listeningThread.addOtherMessage(self,(self.ip+": ",message))
-		# self.chatLog.config(state=NORMAL)
-		# if self.chatLog.index('end') != None:#what is this?
-		# 	# try:#why is there a try catch around this?
-		# 	LineNumber = float(self.chatLog.index('end'))-1.0
-		# 	# except:
-		# 		# pass
-		# 	self.chatLog.insert(END, "Other: " + message)
-		# 	self.chatLog.tag_add("Other", LineNumber, LineNumber+0.6)
-		# 	self.chatLog.tag_config("Other", foreground="#04B404", font=("Arial", 12, "bold"))
-		# 	self.chatLog.config(state=DISABLED)
-		# 	self.chatLog.yview(END)
-		# 	Utils.playGotMessageSound()
 
 	def stripFolderStruc(self,filestruc,path):
 		"""Returns folderstruc without folder sizes"""

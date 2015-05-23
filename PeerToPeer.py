@@ -7,7 +7,6 @@ from tkinter import ttk
 def mainWindow(master):
 	def SendMessageAction():
 		message = EntryBox.get("0.0",END).strip()+"\n"
-		print(index[0])
 		if message!="\n" and index[0] != None: #empty message
 			listeningThread.connections[index[0]][2].mailBox.put(("MESSAGE",message))
 			putMyMessageInChat(message)
@@ -21,7 +20,10 @@ def mainWindow(master):
 	def onSelect(event):
 		indexList = listBox.curselection()
 		if(len(indexList) > 0):
+			if index[0]!=None:
+				listBox.itemconfig(index[0],bg='Orange')#make this white
 			index[0] = int(indexList[0])
+			listBox.itemconfig(index[0],bg='red')#make this blue (same color as selecting)
 			listeningThread.fillBrowseTab(index[0])
 			messages = listeningThread.connections[index[0]][3]
 			chatLog.config(state=NORMAL)
@@ -38,11 +40,6 @@ def mainWindow(master):
 		else:
 			color = "#04B404"
 		Utils.addMessageToLog(chatLog,color,message)
-		# LineNumber = float(chatLog.index('end'))-1.0
-		# numToHilight = float("."+str(len(message[0])))
-		# chatLog.insert(END, message[0] + message[1])
-		# chatLog.tag_add(message[0], LineNumber, LineNumber+numToHilight)
-		# chatLog.tag_config(message[0], foreground=color, font=("Arial", 12, "bold"))
 
 	def PressAction(event):
 		EntryBox.config(state=NORMAL)
@@ -129,7 +126,7 @@ def mainWindow(master):
 	browseF1.pack(fill=BOTH, expand=True)
 	browseF2.pack()
 
-	return chatLog,browseTree,listBox
+	return chatLog,browseTree,listBox,onSelect
 
 def transferWindow(root,maxUploadThreads,maxdownloadThreads):
 	def CancelDownload():
@@ -205,9 +202,9 @@ if (__name__ == "__main__"):
 	peerIP,peerPort,listeningPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
 	
 	master = Tk()
-	chatLog,browseTree,listBox = mainWindow(master)
+	chatLog,browseTree,listBox,onSelectMethod = mainWindow(master)
 	uploadsManager,downloadsManager = transferWindow(master,maxUploadThreads,maxdownloadThreads)
-	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox)
+	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod)
 
 	uploadsManager.start()
 	downloadsManager.start()
@@ -217,16 +214,20 @@ if (__name__ == "__main__"):
 
 	#replace some of the lists with class objects to increase readability
 
-	#gui
-	#settings for list of ip's
+	#add name attribute to settings
+	#add upload and download dir to settigns
+	#add key;name;ip as new filetype
 
 	#make all threads close if gui closes
+	#allow shift down
+	#if a locked file is in the uploads dir it shouldn't try to acess it
 	#remove connections
+	#if uploader closes gui try to make it fail better :)
 	#max the size of saved messages
 	#make getpacket not be an active wait
-	#put hardcoded strings to headers
 	#fix gui lag while downloading
-	#setting for upload and download locations
+	#make sure space on hard drive before starting a download
+	#encryption :)
 	#set proper update rates for upload and downloads
 	#allow dynamically add and delete files to their upload folders
 	#if a download is 50% and request it again it starts at 50% not 0%
@@ -235,7 +236,6 @@ if (__name__ == "__main__"):
 	#make it so if a peer is full on uploads a requesting downloader doesn't wait all day
 	#display max upload/downloads allow it to be changed but error check that its <= 100 and > 0
 	#allow user to clear finished uploaded or downloaded files
-	#make distinction between system message,other messages and your own
 	#maintain ip address
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox
