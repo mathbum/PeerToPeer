@@ -2,4 +2,5 @@ Listening Port=5008,
 Peer Port=5005,
 Max Parallel Uploads=1,
 Max Parallel Downloads=1,
-Username=New User
+Username=New User,
+SecretKey=94k+=ey

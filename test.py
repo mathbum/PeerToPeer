@@ -52,7 +52,7 @@ def parsesettings(settingsarray):
 		key=splitsetting[0].strip()
 		ip=splitsetting[1].strip()
 		name = splitsetting[2].strip()
-		settings.append((key,ip,name))
+		settings.append([key,ip,name])
 	return settings
 
 def loadfile():

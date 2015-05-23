@@ -47,11 +47,18 @@ def isValidInt(num):
 	except:
 		return False
 	return False
+	
+def isValidRandomValue(userName):
+	if isinstance(userName, str) and not(";" in userName):
+		return True
+	else:
+		return False
 
-settingtitles=["Username","Listening Port","Peer Port","Max Parallel Uploads","Max Parallel Downloads"]
-defaultsettings = ["New User",5005,5005,5,5]
-validitycheck = [isValidUserName,isValidPort,isValidPort,isValidInt,isValidInt]
-converter = [str,int,int,int,int]
+
+settingtitles=["Username","Listening Port","Peer Port","Max Parallel Uploads","Max Parallel Downloads", "SecretKey"]
+defaultsettings = ["New User",5005,5005,5,5, "94k+=ey"] #default key needs to be random
+validitycheck = [isValidUserName,isValidPort,isValidPort,isValidInt,isValidInt, isValidRandomValue]
+converter = [str,int,int,int,int, str]
 
 def writedefaultsettings():
 	stringToWrite=""
@@ -84,7 +91,7 @@ def parsesettings(settingsarray):
 	for i in range(0,len(defaultsettings)):
 		settings.append("")
 	for setting in settingsarray:
-		splitsetting=setting.split("=")
+		splitsetting=setting.split("=",1)
 		settitle=splitsetting[0].strip()
 		setval=splitsetting[1].strip()
 

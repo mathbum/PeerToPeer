@@ -107,9 +107,9 @@ class TransferThread(StoppableThread):
 		self.isCanceled=isCanceled
 
 class ListeningThread(StoppableThread):
-	def __init__(self,possConnectionsList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod):
+	def __init__(self,possConnectionsList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod,username,secretKey):
 		super().__init__()
-		self.possConnectionsList=possConnectionsList#(key,ip,name)
+		self.possConnectionsList=possConnectionsList#[key,ip,name]
 		self.peerPort=peerPort
 		self.listeningPort=listeningPort
 		self.uploadsManager=uploadsManager
@@ -120,13 +120,16 @@ class ListeningThread(StoppableThread):
 		self.onSelectMethod=onSelectMethod
 		self.selectedIndex=None
 		self.connections=[] #(socket,serverthread,clientthread,messagelist)
+		self.username = username
+		self.secretKey = secretKey
 
 	def run(self):
 		for i in range(0,len(self.possConnectionsList)):
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((self.possConnectionsList[i][1], self.peerPort))
-				self.connectToPeer(s,self.possConnectionsList[i][1])
+				#self.connectToPeer(s,self.possConnectionsList[i][1])
+				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
 				pass
 
@@ -134,13 +137,14 @@ class ListeningThread(StoppableThread):
 		# self.listeningPort=5007
 		# self.listeningPort=5008
 		# self.listeningPort=5009
-
+		print("failed to connect to peers, going to listening stage")
 		s1.bind(('',self.listeningPort))
 		s1.listen(1)# number of backloged connections
 		while 1:
 			s2, addr = s1.accept()
 			print('Connection address: '+str(addr))
-			self.connectToPeer(s2,addr[0])
+			#self.connectToPeer(s2,addr[0])
+			self.peerToConnect(s2, addr[0])
 
 	def addOtherMessage(self,server,message):
 		index = None#and if none matches? possible?
@@ -170,9 +174,110 @@ class ListeningThread(StoppableThread):
 		Utils.addMessageToLog(self.chatLog,color,message)
 		self.chatLog.config(state=DISABLED)
 		self.chatLog.yview(END)
+	
+	def peerToConnect(self, sock, addressIP):
+		print("getting info")
+		info = self.getUserInfo(addressIP, None)
+		known = False
+		if not info == None:
+			print("found the info, sending my info")
+			self.sendInfoToVerify(sock, info)
+			print("receiving their info now")
+			known = self.verifyResponse(sock, info, addressIP)
+		else:
+			print("couldnt find info!!")
+			known = self.verifyResponse(sock, info, addressIP)
+			print("trying to find info again")
+			info = self.getUserInfo(addressIP, None)
+			print(info)
+			if not info == None:
+				self.sendInfoToVerify(sock, info)
+		if not known:
+			result = messagebox.askquestion("title","text")
+			if result=="yes":
+				self.exhangeInfoWithNewContact(sock, addressIP)
+			else:
+				sock.send(Utils.FAILED_VERIFY_HEADER)
+				sock.close()
+		else:
+			print("connecting to peer")
+			self.waitForIt(sock, addressIP)		
+	
 
+	def exhangeInfoWithNewContact(self, sock, addressIP):
+		data = "" + self.secretKey + ";" + self.username
+		size = len(data)
+		sock.send(Utils.EXHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		control = Utils.getPacketOrStop(sock,4,()) 
+		if control == Utils.GO_AHEAD_HEADER:
+			control = Utils.getPacketOrStop(sock,4,()) 
+		if control == Utils.EXHANGE_INFO_HEADER:
+			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+			resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+			print(resp)
+			theirKey,theirID = resp.split(";")
+			self.possConnectionsList.append([theirKey, addressIP, theirID])
+			self.connectToPeer(sock, addressIP)		
+		else:
+			sock.close()
+			
+	def silentExchange(self, sock, addressIP):
+		data = "" + self.secretKey + ";" + self.username
+		size = len(data)
+		sock.send(Utils.EXHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+		resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+		print(resp)
+		theirKey,theirID = resp.split(";")
+		self.possConnectionsList.append([theirKey, addressIP, theirID])
+		self.connectToPeer(sock, addressIP)		
+				
+	def getUserInfo(self, addressIP, ID):
+		for info in self.possConnectionsList:
+			if info[1] == addressIP or info[2] == ID:
+				if not addressIP == info[1] and addressIP is not None:
+					info[1] = addressIP
+				if not ID == info[2] and ID is not None: #should we do this too?
+					info[2] = ID
+				return info
+		return None
+		
+	def sendInfoToVerify(self, sock, info):
+		data = "" + info[0] + ";" + self.username
+		print(info[0], "what i sent")
+		size = len(data)
+		sock.send(Utils.VERIFY_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+	
+	def verifyResponse(self, sock, info, addressIP):
+		while 1:
+			control = Utils.getPacketOrStop(sock,4,()) #todo: dont crash this thread...........
+			if control == Utils.VERIFY_HEADER:
+				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+				resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+				print(resp)
+				myKey,theirID = resp.split(";")
+				if info == None:
+					info = self.getUserInfo(addressIP, theirID)
+				print(myKey, self.secretKey)
+				print(theirID, info[2])
+				return myKey == self.secretKey and not info == None and info[2] == theirID
+			else:
+				return False #this should be fine?
+	
+	def waitForIt(self, sock, addressIP):
+		sock.send(Utils.GO_AHEAD_HEADER)
+		control = Utils.getPacketOrStop(sock,4,()) #todo: dont crash this thread...........
+		if control == Utils.GO_AHEAD_HEADER:
+			self.connectToPeer(sock, addressIP)		
+		elif control == Utils.FAILED_VERIFY_HEADER:
+			sock.close() #close everything
+		elif control == Utils.EXHANGE_INFO_HEADER:
+			self.silentExchange(sock, addressIP)
+		else:	
+			print("unknown control message:", control)
+		
 	def connectToPeer(self,sock,addressIP):
-		client = ClientThread(sock,self.downloadsManager.mailBox)
+		client = ClientThread(sock,self.downloadsManager.mailBox,)
 		server = ServerThread(sock,self.uploadsManager.mailBox,client,self.browseTree,addressIP,self)
 		client.start()
 		server.start()
@@ -249,6 +354,8 @@ class ServerThread(StoppableThread):
 		self.fillTreeWithFolder(self.browseTree,"",self.peerFolderStruc,"")
 
 	def fillTreeWithFolder(self,tree,root,filestruc,path):
+		if filestruc is None:
+			return
 		for i in range(0,len(filestruc)):
 			item = filestruc[i]
 			if isinstance(item,list):#if its a folder

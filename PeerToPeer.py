@@ -199,13 +199,13 @@ def transferWindow(root,maxUploadThreads,maxdownloadThreads):
 	return uploadsManager,downloadsManager
 
 if (__name__ == "__main__"):
-	userName,listeningPort,peerPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
+	username,listeningPort,peerPort,maxUploadThreads,maxdownloadThreads,secretKey = Utils.getSettings()
 	possConnectionList = test.getConnections()
 	print(possConnectionList)
 	master = Tk()
 	chatLog,browseTree,listBox,onSelectMethod = mainWindow(master)
 	uploadsManager,downloadsManager = transferWindow(master,maxUploadThreads,maxdownloadThreads)
-	listeningThread = CustomThreads.ListeningThread(possConnectionList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod)
+	listeningThread = CustomThreads.ListeningThread(possConnectionList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod,username,secretKey)
 
 	uploadsManager.start()
 	downloadsManager.start()
