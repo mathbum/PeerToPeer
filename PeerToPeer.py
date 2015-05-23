@@ -217,8 +217,17 @@ if (__name__ == "__main__"):
 	#rename alot of stuff in connections file
 	#abstract settings vs connections file?
 
+	#MATT TASKS:
 	#add upload and download dir to settigns
 	#put name instead of "YOU: "
+	
+	#WILL TASKS:
+	#remove connections
+	#edit connections file
+	#maintain ip address
+
+
+	#add displayname
 
 	#make all threads close if gui closes
 	#socket shutdown and close
@@ -242,7 +251,6 @@ if (__name__ == "__main__"):
 	#make it so if a peer is full on uploads a requesting downloader doesn't wait all day
 	#display max upload/downloads allow it to be changed but error check that its <= 100 and > 0
 	#allow user to clear finished uploaded or downloaded files
-	#maintain ip address
 	#make a help or about menu
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox
