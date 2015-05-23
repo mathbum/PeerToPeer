@@ -221,6 +221,8 @@ if (__name__ == "__main__"):
 	#put name instead of "YOU: "
 
 	#make all threads close if gui closes
+	#socket shutdown and close
+	#move secretkey and id out of settings file (add displayname to settings.txt)
 	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
 	#allow shift down
 	#if a locked file is in the uploads dir it shouldn't try to acess it
