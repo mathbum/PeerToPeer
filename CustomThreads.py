@@ -126,13 +126,31 @@ class ListeningThread(StoppableThread):
 
 	def run(self):
 		for i in range(0,len(self.possConnectionsList)):
+			failedConnects = []
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((self.possConnectionsList[i][1], self.peerPort))
 				#self.connectToPeer(s,self.possConnectionsList[i][1])
 				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
-				pass
+				failedConnections.append(self.possConnectionsList[i])
+			
+		for(connection in connections):
+			stillFailed = []
+			for(failed in failedConnects):
+				newIP = self.queryNewIP(connection[0], failed)
+				if newIP == None or newIP == failed[1]:
+					stillFailed.append(failed)
+				else:
+					try:
+						s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+						s.connect((newIP, self.peerPort))
+						self.possConnectionsList[i][1] = newIP
+						test.writeContacts(self.possConnectionsList)
+						self.peerToConnect(s, self.possConnectionsList[i][1])
+					except:
+						stillFailed.append(failed)
+			failedConnects = stillFailed
 
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
@@ -146,6 +164,21 @@ class ListeningThread(StoppableThread):
 			print('Connection address: '+str(addr))
 			#self.connectToPeer(s2,addr[0])
 			self.peerToConnect(s2, addr[0])
+			
+	def queryNewIP(self, sock, info):
+		data = "" + info[2]
+		size = len(data)
+		sock.send(Utils.QUERY_IP_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		control = Utils.getPacketOrStop(sock,4,()) 
+		if control == Utils.QUERY_IP_FAILED_HEADER:
+			return
+		elif control == Utils.QUERY_IP_FOUND_HEADER:
+			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+			IP = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+			print(resp)
+			return IP
+		else:
+			print("uh oh.....")
 
 	def addOtherMessage(self,server,message):
 		index = None#and if none matches? possible?
@@ -361,6 +394,16 @@ class ServerThread(StoppableThread):
 				self.client.setFolderStruc(strippedStruc)
 				if(self.listeningThread.isCurrentServer(self)):
 					self.fillBrowseTree()
+			elif control == QUERY_IP_HEADER:
+				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+				ID = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+				info = self.listeningThread.getUserInfo(None, ID)
+				if(info is not None):
+					data = "" + info[1]
+					size = len(data)
+					sock.send(Utils.QUERY_IP_FOUND_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+				else:
+					sock.send(Utils.QUERY_IP_FAILED_HEADER)
 			elif control==Utils.BEAT_HEADER:
 				pass
 
