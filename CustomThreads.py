@@ -1,5 +1,5 @@
 import os,socket,inspect,ctypes,threading,queue,time,math,pickle
-import Utils
+import Utils, test
 from tkinter import *
 from tkinter import ttk
 import tkinter.messagebox as messagebox
@@ -197,7 +197,8 @@ class ListeningThread(StoppableThread):
 		if known == Utils.EXCHANGE_INFO_HEADER:
 			self.silentExchangeQuestion(sock, addressIP)
 		elif not known:
-			result = messagebox.askquestion("title","text")
+			result = messagebox.askquestion("New connection request",
+				"would you like to connect to: " + info[2] + "at IP address:" + addressIP)
 			if result=="yes":
 				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
@@ -210,7 +211,7 @@ class ListeningThread(StoppableThread):
 	
 
 	def silentExchangeQuestion(self, sock, addressIP):
-		result = messagebox.askquestion("title","text")
+		result = messagebox.askquestion("New Connection request","would you like to connect to: " + addressIP)
 		if result=="yes":
 			print("exchange info")
 			self.silentExchange(sock, addressIP)
@@ -230,7 +231,8 @@ class ListeningThread(StoppableThread):
 			resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
 			print(resp)
 			theirKey,theirID = resp.split(";")
-			self.possConnectionsList.append([theirKey, addressIP, theirID])
+			self.addNewContact([theirKey, addressIP, theirID])
+			
 			self.connectToPeer(sock, addressIP)		
 		else:
 			sock.close()
@@ -243,7 +245,7 @@ class ListeningThread(StoppableThread):
 		resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
 		print(resp)
 		theirKey,theirID = resp.split(";")
-		self.possConnectionsList.append([theirKey, addressIP, theirID])
+		self.addNewContact([theirKey, addressIP, theirID])
 		self.connectToPeer(sock, addressIP)		
 				
 	def getUserInfo(self, addressIP, ID):
@@ -251,10 +253,19 @@ class ListeningThread(StoppableThread):
 			if info[1] == addressIP or info[2] == ID:
 				if not addressIP == info[1] and addressIP is not None:
 					info[1] = addressIP
+					test.writeContacts(self.possConnectionsList)
 				if not ID == info[2] and ID is not None: #should we do this too?
 					info[2] = ID
+					test.writeContacts(self.possConnectionsList)
 				return info
 		return None
+	
+	def addNewContact(self, contact):
+		for info in self.possConnectionsList:
+			if info[1] == contact[1]:
+				info[1] = "0.0.0.0"
+		self.possConnectionsList.append(contact)
+		test.writeContacts(self.possConnectionsList)
 		
 	def sendInfoToVerify(self, sock, info):
 		data = "" + info[0] + ";" + self.username

@@ -62,6 +62,15 @@ def loadfile():
 	settings = filterstring(string).split('\n')
 	return settings
 
+def writeContacts(contactsList):
+	stringToWrite=""
+	f = open(settingsFile, "w")
+	print(contactsList)
+	for i in range(0,len(contactsList)):
+		stringToWrite += contactsList[i][0]+";"+contactsList[i][1]+";"+contactsList[i][2]+"\n"
+	f.write(stringToWrite)
+	f.close()
+
 def clean():
 	if (not (os.path.exists(settingsFile))):
 		f = open(settingsFile, "w")
