@@ -125,19 +125,19 @@ class ListeningThread(StoppableThread):
 		self.secretKey = secretKey
 
 	def run(self):
+		failedConnects = []
 		for i in range(0,len(self.possConnectionsList)):
-			failedConnects = []
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((self.possConnectionsList[i][1], self.peerPort))
 				#self.connectToPeer(s,self.possConnectionsList[i][1])
 				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
-				failedConnections.append(self.possConnectionsList[i])
+				failedConnects.append(self.possConnectionsList[i])
 			
-		for(connection in connections):
+		for connection in self.connections:
 			stillFailed = []
-			for(failed in failedConnects):
+			for failed in failedConnects:
 				newIP = self.queryNewIP(connection[0], failed)
 				if newIP == None or newIP == failed[1]:
 					stillFailed.append(failed)
