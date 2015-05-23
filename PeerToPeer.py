@@ -1,6 +1,6 @@
 #!python3
 import os,socket,queue
-import Utils,CustomThreads
+import Utils,CustomThreads,test
 from tkinter import *
 from tkinter import ttk
 
@@ -199,12 +199,13 @@ def transferWindow(root,maxUploadThreads,maxdownloadThreads):
 	return uploadsManager,downloadsManager
 
 if (__name__ == "__main__"):
-	peerIP,peerPort,listeningPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
-	
+	userName,listeningPort,peerPort,maxUploadThreads,maxdownloadThreads = Utils.getSettings()
+	possConnectionList = test.getConnections()
+	print(possConnectionList)
 	master = Tk()
 	chatLog,browseTree,listBox,onSelectMethod = mainWindow(master)
 	uploadsManager,downloadsManager = transferWindow(master,maxUploadThreads,maxdownloadThreads)
-	listeningThread = CustomThreads.ListeningThread(peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod)
+	listeningThread = CustomThreads.ListeningThread(possConnectionList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod)
 
 	uploadsManager.start()
 	downloadsManager.start()
@@ -213,18 +214,21 @@ if (__name__ == "__main__"):
 	mainloop()
 
 	#replace some of the lists with class objects to increase readability
+	#rename alot of stuff in connections file
+	#abstract settings vs connections file?
 
-	#add name attribute to settings
 	#add upload and download dir to settigns
-	#add key;name;ip as new filetype
+	#put name instead of "YOU: "
 
 	#make all threads close if gui closes
+	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
 	#allow shift down
 	#if a locked file is in the uploads dir it shouldn't try to acess it
 	#remove connections
 	#if uploader closes gui try to make it fail better :)
 	#max the size of saved messages
 	#make getpacket not be an active wait
+	#what if i write bytes into the settings file?
 	#fix gui lag while downloading
 	#make sure space on hard drive before starting a download
 	#encryption :)
@@ -237,6 +241,7 @@ if (__name__ == "__main__"):
 	#display max upload/downloads allow it to be changed but error check that its <= 100 and > 0
 	#allow user to clear finished uploaded or downloaded files
 	#maintain ip address
+	#make a help or about menu
 	#errors
 	#add max up/download to screen, add clear, add cancel/cancell all, add clear completed checkbox
 	#spawn new processes for fuller parallelism (downloader and uploader)

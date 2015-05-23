@@ -107,9 +107,9 @@ class TransferThread(StoppableThread):
 		self.isCanceled=isCanceled
 
 class ListeningThread(StoppableThread):
-	def __init__(self,peerIP,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod):
+	def __init__(self,possConnectionsList,peerPort,listeningPort,uploadsManager,downloadsManager,chatLog,browseTree,listBox,onSelectMethod):
 		super().__init__()
-		self.peerIP=peerIP
+		self.possConnectionsList=possConnectionsList#(key,ip,name)
 		self.peerPort=peerPort
 		self.listeningPort=listeningPort
 		self.uploadsManager=uploadsManager
@@ -122,19 +122,14 @@ class ListeningThread(StoppableThread):
 		self.connections=[] #(socket,serverthread,clientthread,messagelist)
 
 	def run(self):
-		try:#start off by trying to connect to other peer
-			s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			s.connect((self.peerIP, self.peerPort))
-			self.connectToPeer(s,self.peerIP)
+		for i in range(0,len(self.possConnectionsList)):
+			try:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				s.connect((self.possConnectionsList[i][1], self.peerPort))
+				self.connectToPeer(s,self.possConnectionsList[i][1])
+			except:
+				pass
 
-			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# s.connect((self.peerIP, 5007))
-			# self.connectToPeer(s,self.peerIP)
-			# s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-			# s.connect((self.peerIP, 5008))
-			# self.connectToPeer(s,self.peerIP)
-		except:
-			pass
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
 		# self.listeningPort=5008
@@ -158,7 +153,6 @@ class ListeningThread(StoppableThread):
 			self.putMessageInLog(message,False)
 		else:
 			self.listBox.itemconfig(index,bg="yellow")
-			pass#hilight the listitem
 		Utils.playGotMessageSound()
 
 	def addMessage(self,index,message):

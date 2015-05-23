@@ -223,7 +223,7 @@ def getSettings():
 	Settings.writemissing()
 	settings = Settings.loadsettings()
 	print(settings)
-	return settings[0],settings[1],settings[2],settings[3],settings[4]
+	return settings
 
 def playGotMessageSound():
 	soundfile = os.getcwd()+"//test.wav"

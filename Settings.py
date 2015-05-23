@@ -1,6 +1,7 @@
 import os,sys,copy,re
 
 MAX_UPORDOWN_THREADS = 100
+settingsFile = os.getcwd()+"\Settings.txt"
 # def isvalidbool(boolean):
 # 	boolean=str(boolean)
 	# return boolean.lower() in ("yes","true","1","no","false","0")
@@ -22,18 +23,11 @@ MAX_UPORDOWN_THREADS = 100
 # 		settingstring+=settingtitle+"="+currentsetting+",\n"
 # 	writesettingsfromstring(settingstring[:-2],"w")
 
-def isValidIP(IP):
-	if IP == "localhost":
+def isValidUserName(userName):
+	if isinstance(userName, str) and not(";" in userName):
 		return True
-	try: 
-		IP = IP.split('.')
-		for i in range(0,4):
-			num = int(IP[i])
-			if num<0 or num>255:
-				return False
-	except:
+	else:
 		return False
-	return True
 
 def isValidPort(port):
 	try:
@@ -54,15 +48,14 @@ def isValidInt(num):
 		return False
 	return False
 
-settingtitles=["Peer IP","Peer Port","Listening Port","Max Parallel Uploads","Max Parallel Downloads"]
-defaultsettings = ["127.0.0.1",5005,5005,5,5]
-validitycheck = [isValidIP,isValidPort,isValidPort,isValidInt,isValidInt]
-
-file = os.getcwd()+"\Settings.txt"
+settingtitles=["Username","Listening Port","Peer Port","Max Parallel Uploads","Max Parallel Downloads"]
+defaultsettings = ["New User",5005,5005,5,5]
+validitycheck = [isValidUserName,isValidPort,isValidPort,isValidInt,isValidInt]
+converter = [str,int,int,int,int]
 
 def writedefaultsettings():
 	stringToWrite=""
-	f = open(file, "w")
+	f = open(settingsFile, "w")
 	for i in range(0,len(defaultsettings)):
 		stringToWrite += settingtitles[i]+"="+str(defaultsettings[i])+",\n"
 	stringToWrite = stringToWrite[:-2]
@@ -74,15 +67,15 @@ def filterstring(str):
 	return ''.join(str)
 
 def loadsettings():
-	if not os.path.exists(file):#short circuit the rest?
+	if not os.path.exists(settingsFile):#short circuit the rest?
 		writedefaultsettings()
-	with open(file) as f:
+	with open(settingsFile) as f:
 		try:
 			string=filterstring(f.read().strip())
 			settings = parsesettings(string.split(','))
 		except: 
 			writedefaultsettings()
-			settings=loadsettings()#make sure infinite isn't possible
+			settings=loadsettings()
 	f.close()
 	return settings
 
@@ -94,32 +87,27 @@ def parsesettings(settingsarray):
 		splitsetting=setting.split("=")
 		settitle=splitsetting[0].strip()
 		setval=splitsetting[1].strip()
-		if(settingtitles[0] == splitsetting[0]):
-			settings[0]=setval
-		elif(settingtitles[1] == splitsetting[0]):
-			settings[1]=int(setval)
-		elif(settingtitles[2] == splitsetting[0]):
-			settings[2]=int(setval)
-		elif(settingtitles[3] == splitsetting[0]):
-			settings[3]=int(setval)
-		elif(settingtitles[4] == splitsetting[0]):
-			settings[4]=int(setval)
+
+		for i in range(0,len(settingtitles)):
+			if settingtitles[i]==splitsetting[0]:
+				settings[i]=converter[i](setval)
+				break
 	return settings
 
 def loadfile():
-	f = open(file,"r")
+	f = open(settingsFile,"r")
 	string=f.read()
 	string=string.strip()
 	settings = filterstring(string).split(',')
 	return settings
 
 def writesettingsfromstring(string,char):
-	f = open(file,char) 
+	f = open(settingsFile,char) 
 	f.write(string)
 	f.close()
 
 def clean():
-	if (not (os.path.exists(file))):
+	if (not (os.path.exists(settingsFile))):
 		writedefaultsettings()
 	else:
 		titles=copy.copy(settingtitles)
