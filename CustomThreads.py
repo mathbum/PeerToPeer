@@ -187,21 +187,15 @@ class ListeningThread(StoppableThread):
 			known = self.verifyResponse(sock, info, addressIP)
 		else:
 			print("couldnt find info!!")
-			known = self.verifyResponse(sock, info, addressIP)
+			known = self.verifyResponse(sock, info, addressIP),
 			print("trying to find info again")
 			info = self.getUserInfo(addressIP, None)
 			print(info)
 			if not info == None:
 				self.sendInfoToVerify(sock, info)
 		print(known)
-		if known == EXCHANGE_INFO_HEADER:
-			result = messagebox.askquestion("title","text")
-			if result=="yes":
-				print("exchange info")
-				self.silentExchange(sock, addressIP)
-			else:
-				sock.send(Utils.FAILED_VERIFY_HEADER)
-				sock.close()
+		if known == Utils.EXCHANGE_INFO_HEADER:
+			self.silentExchangeQuestion(sock, addressIP)
 		elif not known:
 			result = messagebox.askquestion("title","text")
 			if result=="yes":
@@ -215,6 +209,15 @@ class ListeningThread(StoppableThread):
 			self.waitForIt(sock, addressIP)		
 	
 
+	def silentExchangeQuestion(self, sock, addressIP):
+		result = messagebox.askquestion("title","text")
+		if result=="yes":
+			print("exchange info")
+			self.silentExchange(sock, addressIP)
+		else:
+			sock.send(Utils.FAILED_VERIFY_HEADER)
+			sock.close()
+			
 	def exhangeInfoWithNewContact(self, sock, addressIP):
 		data = "" + self.secretKey + ";" + self.username
 		size = len(data)
@@ -272,6 +275,7 @@ class ListeningThread(StoppableThread):
 					info = self.getUserInfo(addressIP, theirID)
 				print(myKey, self.secretKey)
 				#print(theirID, info[2])
+				
 				return myKey == self.secretKey and not info == None and info[2] == theirID
 			elif control == Utils.EXCHANGE_INFO_HEADER:
 				return Utils.EXCHANGE_INFO_HEADER
@@ -286,7 +290,7 @@ class ListeningThread(StoppableThread):
 		elif control == Utils.FAILED_VERIFY_HEADER:
 			sock.close() #close everything
 		elif control == Utils.EXHANGE_INFO_HEADER:
-			self.silentExchange(sock, addressIP)
+			self.silentExchangeQuestion(sock, addressIP)
 		else:	
 			print("unknown control message:", control)
 		
