@@ -231,7 +231,7 @@ class ListeningThread(StoppableThread):
 			self.silentExchangeQuestion(sock, addressIP)
 		elif not known:
 			result = messagebox.askquestion("New connection request",
-				"would you like to connect to: " + info[2] + "at IP address:" + addressIP)
+				"would you like to connect to: " + "hI" + "at IP address:" + addressIP)
 			if result=="yes":
 				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
@@ -394,16 +394,16 @@ class ServerThread(StoppableThread):
 				self.client.setFolderStruc(strippedStruc)
 				if(self.listeningThread.isCurrentServer(self)):
 					self.fillBrowseTree()
-			elif control == QUERY_IP_HEADER:
-				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
-				ID = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+			elif control == Utils.QUERY_IP_HEADER:
+				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,()))
+				ID = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,()))
 				info = self.listeningThread.getUserInfo(None, ID)
 				if(info is not None):
 					data = "" + info[1]
 					size = len(data)
-					sock.send(Utils.QUERY_IP_FOUND_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+					self.sock.send(Utils.QUERY_IP_FOUND_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 				else:
-					sock.send(Utils.QUERY_IP_FAILED_HEADER)
+					self.sock.send(Utils.QUERY_IP_FAILED_HEADER)
 			elif control==Utils.BEAT_HEADER:
 				pass
 
