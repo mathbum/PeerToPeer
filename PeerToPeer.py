@@ -227,8 +227,6 @@ if (__name__ == "__main__"):
 	
 	#WILL TASKS:
 	#remove connections
-	#edit connections file
-	#maintain ip address
 	#generate random key and id
 
 
