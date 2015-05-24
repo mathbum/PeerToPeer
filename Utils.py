@@ -37,14 +37,22 @@ def bytesToString(bytes):
 def join(path1,path2):
 	return os.path.join(path1,path2)
 
-def getPacketOrStop(sock,size,threads):
-	value = getPacket(sock,size)
-	if value==None:
-		print("Sender Disconnected")
-		for i in range(0,len(threads)):
-			threads[i].stop()
-	else:
+def getPacketOrStop(sock,size,threads=(),function=None,peer=None,isServer=None):
+	try:
+		value = getPacket(sock,size)		
+		if value==None:
+			print("Sender Disconnected")
+			makeTheStop(threads,function,peer,isServer)
 		return value
+	except:
+		makeTheStop(threads,function,peer,isServer)
+		return None
+
+def makeTheStop(threads,function,peer,isServer):
+	for i in range(0,len(threads)):
+		threads[i].stop()
+	if function!=None and peer!=None and isServer!=None:
+		function(peer,isServer)
 
 def getPacket(sock,size):
 	stopTime=datetime.datetime.now() + datetime.timedelta(minutes=1)
@@ -232,7 +240,7 @@ def getSettings():
 	Settings.clean()
 	Settings.writemissing()
 	settings = Settings.loadsettings()
-	print(settings)
+	# print(settings)
 	return settings
 
 def playGotMessageSound():
