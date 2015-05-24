@@ -41,7 +41,7 @@ def getPacketOrStop(sock,size,threads):
 	value = getPacket(sock,size)
 	if value==None:
 		print("Sender Disconnected")
-		for i in len(threads):
+		for i in range(0,len(threads)):
 			threads[i].stop()
 	else:
 		return value
