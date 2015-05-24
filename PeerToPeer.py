@@ -214,10 +214,14 @@ if (__name__ == "__main__"):
 	mainloop()
 
 	#replace some of the lists with class objects to increase readability
-	#rename alot of stuff in connections file
 	#abstract settings vs connections file?
 
 	#MATT TASKS:
+	#if uploads and downloads folder doesn't exists it shouldn't crash
+	#add displayname to settings
+	#close client if server dies and visa versa
+	#what if client is unable to send (is it caught by try catch? then just send heart beat)
+	#rename alot of stuff in connections file
 	#add upload and download dir to settigns
 	#put name instead of "YOU: "
 	
@@ -225,17 +229,18 @@ if (__name__ == "__main__"):
 	#remove connections
 	#edit connections file
 	#maintain ip address
+	#generate random key and id
 
 
 	#add displayname
 
+	#discovery (all your contacts send you all the "pubic" id's they have and you can choose if you want to add those users)
 	#make all threads close if gui closes
 	#socket shutdown and close
 	#move secretkey and id out of settings file (add displayname to settings.txt)
 	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
 	#allow shift down
 	#if a locked file is in the uploads dir it shouldn't try to acess it
-	#remove connections
 	#if uploader closes gui try to make it fail better :)
 	#max the size of saved messages
 	#make getpacket not be an active wait
