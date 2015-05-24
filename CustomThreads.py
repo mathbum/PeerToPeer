@@ -208,7 +208,8 @@ class ListeningThread(StoppableThread):
 	
 	def peerToConnect(self, sock, addressIP):
 		print("getting info")
-		info = self.getUserInfo(addressIP, None)
+		ID = self.exchangeIDs(sock)
+		info = self.getUserInfo(addressIP, ID)
 		known = False
 		if not info == None:
 			print("found the info, sending my info")
@@ -228,7 +229,7 @@ class ListeningThread(StoppableThread):
 			self.silentExchangeQuestion(sock, addressIP)
 		elif not known:
 			result = messagebox.askquestion("New connection request",
-				"would you like to connect to: " + "hI" + "at IP address:" + addressIP)
+				"would you like to connect to: " + ID + "at IP address:" + addressIP)
 			if result=="yes":
 				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
@@ -239,6 +240,18 @@ class ListeningThread(StoppableThread):
 			print("connecting to peer")
 			self.waitForIt(sock, addressIP)		
 	
+	def exchangeIDs(self, sock):
+		data = "" + self.username
+		size = len(data)
+		sock.send(Utils.ID_EXCHANGE_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		control = Utils.getPacketOrStop(sock,4,()) 
+		if control == Utils.ID_EXCHANGE_HEADER:
+			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
+			ID = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
+			return ID
+		else:
+			print("didnt get the other guys ID")
+			sock.close()
 
 	def silentExchangeQuestion(self, sock, addressIP):
 		result = messagebox.askquestion("New Connection request","would you like to connect to: " + addressIP)
@@ -293,7 +306,7 @@ class ListeningThread(StoppableThread):
 	def addNewContact(self, contact):
 		added = False
 		for info in self.possConnectionsList:
-			if info[0] == contact[0] or info[2] == contact[2]:
+			if info[0] == contact[0]:
 				info[0] = contact[0]
 				info[1] = contact[1]
 				info[2] = contact[2]
