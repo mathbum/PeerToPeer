@@ -17,6 +17,7 @@ EXCHANGE_INFO_HEADER = b'GIME'
 QUERY_IP_HEADER = b'QIRQ'
 QUERY_IP_FAILED_HEADER = b'UNKO'
 QUERY_IP_FOUND_HEADER = b'NWIP'
+ID_EXCHANGE_HEADER = b'IDEX'
 DOWNLOADS_DIR = os.path.join(os.getcwd(),"downloads")
 UPLOADS_DIR = os.path.join(os.getcwd(),"uploads")
 RETRY_LIMIT=2
