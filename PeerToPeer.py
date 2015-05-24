@@ -224,6 +224,8 @@ if (__name__ == "__main__"):
 	#add upload and download dir to settigns
 	#put displayname instead of "YOU: "
 	#rename listeningthread to connection handler
+	#move secretkey and id out of settings file
+	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
 	
 	#WILL TASKS:
 
@@ -231,12 +233,11 @@ if (__name__ == "__main__"):
 	#remove long start up when have valid ip addresses
 	#if a file is protected and in the uploads folder
 	#if a locked file is in the uploads dir it shouldn't try to acess it
-
 	#discovery (all your contacts send you all the "pubic" id's they have and you can choose if you want to add those users)
+
 	#make all threads close if gui closes
 	#socket shutdown and close
-	#move secretkey and id out of settings file (add displayname to settings.txt)
-	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
+
 	#allow shift down
 	#if uploader closes gui try to make it fail better :)
 	#max the size of saved messages
