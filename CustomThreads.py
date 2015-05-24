@@ -134,23 +134,10 @@ class ListeningThread(StoppableThread):
 				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
 				failedConnects.append(self.possConnectionsList[i])
-		if False:	
-			for connection in self.connections:
-				stillFailed = []
-				for failed in failedConnects:
-					newIP = self.queryNewIP(connection[0], failed)
-					if newIP == None or newIP == failed[1]:
-						stillFailed.append(failed)
-					else:
-						try:
-							s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-							s.connect((newIP, self.peerPort))
-							self.possConnectionsList[i][1] = newIP
-							test.writeContacts(self.possConnectionsList)
-							self.peerToConnect(s, self.possConnectionsList[i][1])
-						except:
-							stillFailed.append(failed)
-				failedConnects = stillFailed
+			
+		for connection in self.connections:
+			for failed in failedConnects:
+				connection[2].queryNewIP(failed)
 
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
@@ -165,20 +152,24 @@ class ListeningThread(StoppableThread):
 			#self.connectToPeer(s2,addr[0])
 			self.peerToConnect(s2, addr[0])
 			
-	def queryNewIP(self, sock, info):
-		data = "" + info[2]
-		size = len(data)
-		sock.send(Utils.QUERY_IP_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
-		control = Utils.getPacketOrStop(sock,4,()) 
-		if control == Utils.QUERY_IP_FAILED_HEADER:
-			return
-		elif control == Utils.QUERY_IP_FOUND_HEADER:
-			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
-			IP = Utils.bytesToString(Utils.getPacketOrStop(sock,size,()))
-			print(resp)
-			return IP
-		else:
-			print("uh oh.....")
+	def foundIPAddress(self, info):
+		if not self.isAlreadyConnected(info[1]):
+			info = self.getUserInfo(info[0], info[1])
+			try:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+				s.connect((newIP, self.peerPort))
+				#self.possConnectionsList[i][1] = newIP
+				test.writeContacts(self.possConnectionsList)
+				self.peerToConnect(s, self.possConnectionsList[i][1])
+			except:
+				pass
+		
+		
+	def isAlreadyConnected(self, addressIP):
+		for connection in self.connections:
+			if connection[1].ip == addressIP:
+				return True
+		return False
 
 	def addOtherMessage(self,server,message):
 		index = None#and if none matches? possible?
@@ -308,7 +299,7 @@ class ListeningThread(StoppableThread):
 	
 	def verifyResponse(self, sock, info, addressIP):
 		while 1:
-			control = Utils.getPacketOrStop(sock,4,()) #todo: dont crash this thread...........
+			control = Utils.getPacketOrStop(sock,4,())
 			print(control)
 			if control == Utils.VERIFY_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4,()))
@@ -399,11 +390,21 @@ class ServerThread(StoppableThread):
 				ID = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,()))
 				info = self.listeningThread.getUserInfo(None, ID)
 				if(info is not None):
-					data = "" + info[1]
+					data = "" + ID + ";" + info[1]
 					size = len(data)
 					self.sock.send(Utils.QUERY_IP_FOUND_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 				else:
-					self.sock.send(Utils.QUERY_IP_FAILED_HEADER)
+					data = "" + ID
+					size = len(data)
+					self.sock.send(Utils.QUERY_IP_FAILED_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+			elif control == Utils.QUERY_IP_FAILED_HEADER:
+				return
+			elif control == Utils.QUERY_IP_FOUND_HEADER:
+				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,()))
+				resp = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,()))
+				print(resp)
+				ID,IP = resp.split(";")
+				self.listeningThread.foundIPAddress((ID, IP))
 			elif control==Utils.BEAT_HEADER:
 				pass
 
@@ -486,6 +487,12 @@ class ClientThread(StoppableThread):#responsible for sending messages to peer
 				size = len(message)
 			self.sock.send(Utils.MESSAGE_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(message[:size]))
 			message = message[size:]
+			
+	def queryNewIP(self, info):
+		data = "" + info[2]
+		size = len(data)
+		self.sock.send(Utils.QUERY_IP_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
+		
 
 class UploadManagerThread(ManagerThread):
 	# transferList=[]#(ip,port,filename,treeItem)
