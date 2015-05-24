@@ -128,10 +128,8 @@ class ListeningThread(StoppableThread):
 		failedConnects = []
 		for i in range(0,len(self.possConnectionsList)):
 			try:
-				# print("trying to connect to: ", self.possConnectionsList[i])
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((self.possConnectionsList[i][1], self.peerPort))
-				#self.connectToPeer(s,self.possConnectionsList[i][1])
 				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
 				failedConnects.append(self.possConnectionsList[i])
@@ -141,16 +139,12 @@ class ListeningThread(StoppableThread):
 				connection[2].queryNewIP(failed)
 
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-		# self.listeningPort=5007
-		# self.listeningPort=5008
-		# self.listeningPort=5009
 		print("failed to connect to peers, going to listening stage")
 		s1.bind(('',self.listeningPort))
 		s1.listen(1)# number of backloged connections
 		while 1:
 			s2, addr = s1.accept()
 			print('Connection address: '+str(addr))
-			#self.connectToPeer(s2,addr[0])
 			try:
 				self.peerToConnect(s2, addr[0])
 			except:
@@ -158,21 +152,15 @@ class ListeningThread(StoppableThread):
 			
 	def foundIPAddress(self, info):
 		if not self.isAlreadyConnected(info[0]):
-			print(info)
-			print(self.possConnectionsList)
 			info = self.getUserInfo(info[0], info[1])
-			print(info)
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((info[1], self.peerPort))
-				#self.possConnectionsList[i][1] = newIP
 				test.writeContacts(self.possConnectionsList)
 				self.peerToConnect(s, info[1])
 			except:
 				print(sys.exc_info()[0])
-				print("exception thrown")
 				pass
-		
 		
 	def isAlreadyConnected(self, addressIP):
 		for connection in self.connections:
@@ -210,37 +198,28 @@ class ListeningThread(StoppableThread):
 		self.chatLog.yview(END)
 	
 	def peerToConnect(self, sock, addressIP):
-		print("getting info")
 		ID = self.exchangeIDs(sock)
 		info = self.getUserInfo(addressIP, ID)
 		known = False
 		if not info == None:
-			print("found the info, sending my info")
 			self.sendInfoToVerify(sock, info)
-			print("receiving their info now")
 			known = self.verifyResponse(sock, info, addressIP)
 		else:
-			print("couldnt find info!!")
 			known = self.verifyResponse(sock, info, addressIP)
-			print("trying to find info again")
 			info = self.getUserInfo(addressIP, None)
-			print(info)
 			if not info == None:
 				self.sendInfoToVerify(sock, info)
-		print(known)
 		if known == Utils.EXCHANGE_INFO_HEADER:
 			self.silentExchangeQuestion(sock, addressIP, ID)
 		elif not known:
 			result = messagebox.askquestion("New connection request",
 				"Would you like to connect to: " + addressIP + " With ID: " + ID)
 			if result=="yes":
-				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
 			else:
 				sock.send(Utils.FAILED_VERIFY_HEADER)
 				sock.close()
 		else:
-			print("connecting to peer")
 			self.waitForIt(sock, addressIP, ID)		
 	
 	def exchangeIDs(self, sock):
@@ -253,13 +232,11 @@ class ListeningThread(StoppableThread):
 			ID = Utils.bytesToString(Utils.getPacketOrStop(sock,size))
 			return ID
 		else:
-			print("didnt get the other guys ID")
 			sock.close()
 
 	def silentExchangeQuestion(self, sock, addressIP, ID):
 		result = messagebox.askquestion("New Connection request","Would you like to connect to: " + ID + " at IP address: " + addressIP)
 		if result=="yes":
-			print("exchange info")
 			self.silentExchange(sock, addressIP)
 		else:
 			sock.send(Utils.FAILED_VERIFY_HEADER)
@@ -275,7 +252,6 @@ class ListeningThread(StoppableThread):
 		if control == Utils.EXCHANGE_INFO_HEADER:
 			size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4))
 			resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size))
-			# print(resp)
 			theirKey,theirID = resp.split(";")
 			self.addNewContact([theirKey, addressIP, theirID])
 			
@@ -289,7 +265,6 @@ class ListeningThread(StoppableThread):
 		sock.send(Utils.EXCHANGE_INFO_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 		size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4))
 		resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size))
-		# print(resp)
 		theirKey,theirID = resp.split(";")
 		self.addNewContact([theirKey, addressIP, theirID])
 		self.connectToPeer(sock, addressIP)		
@@ -300,7 +275,7 @@ class ListeningThread(StoppableThread):
 				if not addressIP == info[1] and addressIP is not None:
 					info[1] = addressIP
 					test.writeContacts(self.possConnectionsList)
-				if not ID == info[2] and ID is not None: #should we do this too?
+				if not ID == info[2] and ID is not None:
 					info[2] = ID
 					test.writeContacts(self.possConnectionsList)
 				return info
@@ -323,7 +298,6 @@ class ListeningThread(StoppableThread):
 		
 	def sendInfoToVerify(self, sock, info):
 		data = "" + info[0] + ";" + self.username
-		# print(info[0], "what i sent")
 		size = len(data)
 		sock.send(Utils.VERIFY_HEADER+Utils.intToBytes(size,4)+Utils.stringToBytes(data))
 	
@@ -334,16 +308,14 @@ class ListeningThread(StoppableThread):
 			if control == Utils.VERIFY_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(sock,4))
 				resp = Utils.bytesToString(Utils.getPacketOrStop(sock,size))
-				# print(resp)
 				myKey,theirID = resp.split(";")
 				if info == None:
 					info = self.getUserInfo(addressIP, theirID)
-				# print(myKey, self.secretKey)				
 				return myKey == self.secretKey and not info == None and info[2] == theirID
 			elif control== Utils.EXCHANGE_INFO_HEADER:
 				return Utils.EXCHANGE_INFO_HEADER
 			else:
-				return False #this should be fine?
+				return False
 	
 	def waitForIt(self, sock, addressIP, ID):
 		sock.send(Utils.GO_AHEAD_HEADER)
@@ -407,7 +379,6 @@ class ListeningThread(StoppableThread):
 			killFirst=2
 			killSecond=1
 		connection[killFirst].stop()
-		print("Killing BOTH!~!@!@!@!@~@~@!#@#$%^&*&^%$#@!")
 		connection[killSecond].stop()
 
 	def fillBrowseTab(self,index):
@@ -436,7 +407,6 @@ class ServerThread(StoppableThread):
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
 				fileName = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
 				port = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,2,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
-				print("ip to send to "+self.ip)
 				self.managerMailbox.put(("FILES",[self.ip,port,fileName]))
 			elif control == Utils.MESSAGE_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
@@ -471,7 +441,6 @@ class ServerThread(StoppableThread):
 			elif control == Utils.QUERY_IP_FOUND_HEADER:
 				size = Utils.bytesToInt(Utils.getPacketOrStop(self.sock,4,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
 				resp = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,function=self.listeningThread.disconnectThread,peer=self,isServer=True))
-				# print(resp)
 				ID,IP = resp.split(";")
 				self.listeningThread.foundIPAddress((IP, ID))
 			elif control==Utils.BEAT_HEADER:

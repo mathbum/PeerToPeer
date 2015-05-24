@@ -218,20 +218,19 @@ if (__name__ == "__main__"):
 
 	#MATT TASKS:
 	#add displayname to settings
-	#close client if server dies and visa versa
+	#rename username to id 
+	#find all ways the server and client can crash
 	#rename alot of stuff in connections file
 	#add upload and download dir to settigns
-	#put name instead of "YOU: "
+	#put displayname instead of "YOU: "
 	#rename listeningthread to connection handler
 	
 	#WILL TASKS:
-	#remove connections
-	#generate random key and id
-
 
 	#add displayname
 	#remove long start up when have valid ip addresses
 	#if a file is protected and in the uploads folder
+	#if a locked file is in the uploads dir it shouldn't try to acess it
 
 	#discovery (all your contacts send you all the "pubic" id's they have and you can choose if you want to add those users)
 	#make all threads close if gui closes
@@ -239,7 +238,6 @@ if (__name__ == "__main__"):
 	#move secretkey and id out of settings file (add displayname to settings.txt)
 	#slow down heartbeat rate (it seems to send alot faster than 15 seconds)
 	#allow shift down
-	#if a locked file is in the uploads dir it shouldn't try to acess it
 	#if uploader closes gui try to make it fail better :)
 	#max the size of saved messages
 	#make getpacket not be an active wait
