@@ -151,7 +151,10 @@ class ListeningThread(StoppableThread):
 			s2, addr = s1.accept()
 			print('Connection address: '+str(addr))
 			#self.connectToPeer(s2,addr[0])
-			self.peerToConnect(s2, addr[0])
+			try:
+				self.peerToConnect(s2, addr[0])
+			except:
+				pass
 			
 	def foundIPAddress(self, info):
 		if not self.isAlreadyConnected(info[0]):
@@ -226,10 +229,10 @@ class ListeningThread(StoppableThread):
 				self.sendInfoToVerify(sock, info)
 		print(known)
 		if known == Utils.EXCHANGE_INFO_HEADER:
-			self.silentExchangeQuestion(sock, addressIP)
+			self.silentExchangeQuestion(sock, addressIP, ID)
 		elif not known:
 			result = messagebox.askquestion("New connection request",
-				"would you like to connect to: " + ID + "at IP address:" + addressIP)
+				"would you like to connect to: " + addressIP + " \nwith ID: " + ID)
 			if result=="yes":
 				print("exchange info")
 				self.exhangeInfoWithNewContact(sock, addressIP)
@@ -238,7 +241,7 @@ class ListeningThread(StoppableThread):
 				sock.close()
 		else:
 			print("connecting to peer")
-			self.waitForIt(sock, addressIP)		
+			self.waitForIt(sock, addressIP, ID)		
 	
 	def exchangeIDs(self, sock):
 		data = "" + self.username
@@ -253,8 +256,8 @@ class ListeningThread(StoppableThread):
 			print("didnt get the other guys ID")
 			sock.close()
 
-	def silentExchangeQuestion(self, sock, addressIP):
-		result = messagebox.askquestion("New Connection request","would you like to connect to: " + addressIP)
+	def silentExchangeQuestion(self, sock, addressIP, ID):
+		result = messagebox.askquestion("New Connection request","would you like to connect to: " + ID + " at IP address: " + addressIP)
 		if result=="yes":
 			print("exchange info")
 			self.silentExchange(sock, addressIP)
@@ -344,7 +347,7 @@ class ListeningThread(StoppableThread):
 			else:
 				return False #this should be fine?
 	
-	def waitForIt(self, sock, addressIP):
+	def waitForIt(self, sock, addressIP, ID):
 		sock.send(Utils.GO_AHEAD_HEADER)
 		control = Utils.getPacketOrStop(sock,4,()) #todo: dont crash this thread...........
 		if control == Utils.GO_AHEAD_HEADER:
@@ -352,7 +355,7 @@ class ListeningThread(StoppableThread):
 		elif control == Utils.FAILED_VERIFY_HEADER:
 			sock.close() #close everything
 		elif control == Utils.EXCHANGE_INFO_HEADER:
-			self.silentExchangeQuestion(sock, addressIP)
+			self.silentExchangeQuestion(sock, addressIP, ID)
 		else:	
 			print("unknown control message:", control)
 		
