@@ -189,6 +189,8 @@ def charToInt(char):#make special chars be ascii value, digits be 128-136 and ch
 
 def listfolder(folderpath):
 	"""Lists files and folders and their associated size"""
+	if not os.path.exists(folderpath):
+		os.makedirs(folderpath)
 	files = os.listdir(folderpath)
 	folder=[]
 	orderedfiles=[]
