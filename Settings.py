@@ -1,4 +1,4 @@
-import os,sys,copy,re
+import os,sys,copy,re,random,string
 
 MAX_UPORDOWN_THREADS = 100
 settingsFile = os.getcwd()+"\Settings.txt"
@@ -56,7 +56,7 @@ def isValidRandomValue(userName):
 
 
 settingtitles=["Username","Listening Port","Peer Port","Max Parallel Uploads","Max Parallel Downloads", "SecretKey"]
-defaultsettings = ["New User",5005,5005,5,5, "94k+=ey"] #default key needs to be random
+defaultsettings = ["NEWUSER",5005,5005,5,5, "NEWKEY"] #default key needs to be random
 validitycheck = [isValidUserName,isValidPort,isValidPort,isValidInt,isValidInt, isValidRandomValue]
 converter = [str,int,int,int,int, str]
 
@@ -64,7 +64,10 @@ def writedefaultsettings():
 	stringToWrite=""
 	f = open(settingsFile, "w")
 	for i in range(0,len(defaultsettings)):
-		stringToWrite += settingtitles[i]+"="+str(defaultsettings[i])+",\n"
+		if defaultsettings[i] == "NEWUSER" or defaultsettings[i] == "NEWKEY":
+			print("CREATING NEW RANDOM STRING")
+			defaultsettings[i] = ''.join(random.choice(re.findall("[ -:]|[<-~]",string.printable)) for j in range(128))
+		stringToWrite += settingtitles[i]+"="+str(defaultsettings[i])+";\n"
 	stringToWrite = stringToWrite[:-2]
 	f.write(stringToWrite)
 	f.close()
@@ -79,7 +82,7 @@ def loadsettings():
 	with open(settingsFile) as f:
 		try:
 			string=filterstring(f.read().strip())
-			settings = parsesettings(string.split(','))
+			settings = parsesettings(string.split(';'))
 		except: 
 			writedefaultsettings()
 			settings=loadsettings()
@@ -105,7 +108,7 @@ def loadfile():
 	f = open(settingsFile,"r")
 	string=f.read()
 	string=string.strip()
-	settings = filterstring(string).split(',')
+	settings = filterstring(string).split(';')
 	return settings
 
 def writesettingsfromstring(string,char):
@@ -129,10 +132,10 @@ def clean():
 			else:
 				continue
 			if(validfunction(setting.split('=',1)[1].strip())):
-				settingstring+=setting+",\n"
+				settingstring+=setting+";\n"
 				titles.remove(title)
 		settingstring=settingstring[:-2]
-		if (not(filterstring(settingstring).split(',')==settingsarray)):
+		if (not(filterstring(settingstring).split(';')==settingsarray)):
 			writesettingsfromstring(settingstring,"w")
 
 def writemissing():
@@ -142,11 +145,14 @@ def writemissing():
 		title=setting.split('=')[0].strip()
 		if(title in settingtitles):
 			missingtitles.remove(title)
-	stringtowrite=",\n"
+	stringtowrite=";\n"
 	for i in range(0,len(settingtitles)):
 		title=settingtitles[i]
 		if(title in missingtitles):
-			stringtowrite+=title+"="+str(defaultsettings[i])+",\n"
+			if defaultsettings[i] == "NEWUSER" or defaultsettings[i] == "NEWKEY":
+				print("CREATING NEW RANDOM STRING")
+				defaultsettings[i] = ''.join(random.choice(re.findall("[ -:]|[<-~]",string.printable)) for j in range(128))
+			stringtowrite+=title+"="+str(defaultsettings[i])+";\n"
 	if(len(stringtowrite)>2):
 		stringtowrite=stringtowrite[:-2]
 		writesettingsfromstring(stringtowrite,"a")
