@@ -128,6 +128,7 @@ class ListeningThread(StoppableThread):
 		failedConnects = []
 		for i in range(0,len(self.possConnectionsList)):
 			try:
+				print("trying to connect to: ", self.possConnectionsList[i])
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 				s.connect((self.possConnectionsList[i][1], self.peerPort))
 				#self.connectToPeer(s,self.possConnectionsList[i][1])
@@ -153,15 +154,20 @@ class ListeningThread(StoppableThread):
 			self.peerToConnect(s2, addr[0])
 			
 	def foundIPAddress(self, info):
-		if not self.isAlreadyConnected(info[1]):
+		if not self.isAlreadyConnected(info[0]):
+			print(info)
+			print(self.possConnectionsList)
 			info = self.getUserInfo(info[0], info[1])
+			print(info)
 			try:
 				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-				s.connect((newIP, self.peerPort))
+				s.connect((info[1], self.peerPort))
 				#self.possConnectionsList[i][1] = newIP
 				test.writeContacts(self.possConnectionsList)
-				self.peerToConnect(s, self.possConnectionsList[i][1])
+				self.peerToConnect(s, info[1])
 			except:
+				print(sys.exc_info()[0])
+				print("exception thrown")
 				pass
 		
 		
@@ -285,10 +291,18 @@ class ListeningThread(StoppableThread):
 		return None
 	
 	def addNewContact(self, contact):
+		added = False
 		for info in self.possConnectionsList:
+			if info[0] == contact[0] or info[2] == contact[2]:
+				info[0] = contact[0]
+				info[1] = contact[1]
+				info[2] = contact[2]
+				added = True
+				break
 			if info[1] == contact[1]:
 				info[1] = "0.0.0.0"
-		self.possConnectionsList.append(contact)
+		if not added:
+			self.possConnectionsList.append(contact)
 		test.writeContacts(self.possConnectionsList)
 		
 	def sendInfoToVerify(self, sock, info):
@@ -404,7 +418,7 @@ class ServerThread(StoppableThread):
 				resp = Utils.bytesToString(Utils.getPacketOrStop(self.sock,size,()))
 				print(resp)
 				ID,IP = resp.split(";")
-				self.listeningThread.foundIPAddress((ID, IP))
+				self.listeningThread.foundIPAddress((IP, ID))
 			elif control==Utils.BEAT_HEADER:
 				pass
 
