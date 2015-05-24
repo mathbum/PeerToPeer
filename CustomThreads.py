@@ -134,23 +134,23 @@ class ListeningThread(StoppableThread):
 				self.peerToConnect(s, self.possConnectionsList[i][1])
 			except:
 				failedConnects.append(self.possConnectionsList[i])
-			
-		for connection in self.connections:
-			stillFailed = []
-			for failed in failedConnects:
-				newIP = self.queryNewIP(connection[0], failed)
-				if newIP == None or newIP == failed[1]:
-					stillFailed.append(failed)
-				else:
-					try:
-						s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-						s.connect((newIP, self.peerPort))
-						self.possConnectionsList[i][1] = newIP
-						test.writeContacts(self.possConnectionsList)
-						self.peerToConnect(s, self.possConnectionsList[i][1])
-					except:
+		if False:	
+			for connection in self.connections:
+				stillFailed = []
+				for failed in failedConnects:
+					newIP = self.queryNewIP(connection[0], failed)
+					if newIP == None or newIP == failed[1]:
 						stillFailed.append(failed)
-			failedConnects = stillFailed
+					else:
+						try:
+							s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+							s.connect((newIP, self.peerPort))
+							self.possConnectionsList[i][1] = newIP
+							test.writeContacts(self.possConnectionsList)
+							self.peerToConnect(s, self.possConnectionsList[i][1])
+						except:
+							stillFailed.append(failed)
+				failedConnects = stillFailed
 
 		s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		# self.listeningPort=5007
